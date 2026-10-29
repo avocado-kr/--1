@@ -5,6 +5,15 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta http-equiv="Cache-Control" content="no-cache">
+<script>
+// 카카오톡·라인 앱 안의 브라우저에서 열면 → 휴대폰 기본 브라우저(크롬·사파리)로 다시 열기 (가로 고정·전체 화면이 앱 안에서는 잘 안 됨)
+(function () {
+  const ua = navigator.userAgent;
+  if (/KAKAOTALK/i.test(ua)) location.href = "kakaotalk://web/openExternal?url=" + encodeURIComponent(location.href);
+  else if (/ Line\//i.test(ua) && !/openExternalBrowser=1/.test(location.search)) location.href = location.href + (location.search ? "&" : "?") + "openExternalBrowser=1";
+})();
+</script>
 <title>달걀 도둑 농장 3D</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -709,7 +718,8 @@ function makeAnimal(type, targetH) {
 // =====================================================================
 //  화면 방향: 휴대폰은 항상 가로 (세로로 들면 게임 전체를 90° 돌려서 보여 줌), 컴퓨터는 그대로
 // =====================================================================
-const IS_TOUCH = matchMedia('(pointer: coarse)').matches || navigator.maxTouchPoints > 0;
+const IS_TOUCH = matchMedia('(pointer: coarse)').matches || navigator.maxTouchPoints > 0 || /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+const GAME_VER = '2026-10-29c';   // 타이틀 화면 아래에 표시 (최신 버전인지 확인용)
 let ROT = false, VW = innerWidth, VH = innerHeight;   // VW × VH = 게임 화면 크기 (항상 가로가 더 김)
 function layout() {
   ROT = IS_TOUCH && innerHeight > innerWidth;
@@ -1798,7 +1808,8 @@ function titleScreen() {
       <label>내 이름 <input id="netName" maxlength="10" value="${NET.name.replace(/[&"<>]/g, "")}" onchange="setNetName(this.value)"></label></div>
     <button class="btn" onclick="setNetName($('netName').value);startGame()">게임 시작</button>
     <button class="btn gray" onclick="codexScreen()">동물 도감</button>
-    <button class="btn gray" id="resetBtn" onclick="resetData()">데이터 초기화</button>`);
+    <button class="btn gray" id="resetBtn" onclick="resetData()">데이터 초기화</button>
+    <p style="font-size:11px;color:#667;margin-top:10px">버전 ${GAME_VER}${IS_TOUCH ? ` · 📱 ${ROT ? "가로로 돌림" : "가로 화면"}` : ""}</p>`);
 }
 let resetArmed = false;
 function resetData() {

@@ -2,13 +2,2318 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta http-equiv="Cache-Control" content="no-cache">
+<script>
+// 카카오톡·라인 앱 안의 브라우저에서 열면 → 휴대폰 기본 브라우저(크롬·사파리)로 다시 열기 (가로 고정·전체 화면이 앱 안에서는 잘 안 됨)
+(function () {
+  const ua = navigator.userAgent;
+  if (/KAKAOTALK/i.test(ua)) location.href = "kakaotalk://web/openExternal?url=" + encodeURIComponent(location.href);
+  else if (/ Line\//i.test(ua) && !/openExternalBrowser=1/.test(location.search)) location.href = location.href + (location.search ? "&" : "?") + "openExternalBrowser=1";
+})();
+</script>
 <title>달걀 도둑 농장 3D</title>
-<meta http-equiv="refresh" content="0; url=%EB%8B%AC%EA%B1%80%EB%8F%84%EB%91%913D.html">
-<script>location.replace('%EB%8B%AC%EA%B1%80%EB%8F%84%EB%91%913D.html' + location.search);</script>
-<style>body { background: #141626; color: #fff; font-family: 'Malgun Gothic', sans-serif; display: grid; place-items: center; height: 100vh; margin: 0; } a { color: #ffcc33; }</style>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { overflow: hidden; background: #000; font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif; color: #fff; user-select: none; }
+  canvas { display: block; }
+  .hidden { display: none !important; }
+
+  #hud { position: fixed; inset: 0; pointer-events: none; }
+  #hudL { position: absolute; top: 14px; left: 14px; background: rgba(0,0,0,.45); padding: 10px 14px; border-radius: 12px; min-width: 260px; }
+  #hStage { font-size: 17px; font-weight: bold; }
+  #hStatus { font-size: 15px; margin-top: 4px; }
+  #hTime { font-size: 14px; margin-top: 4px; }
+  #bar { position: relative; height: 10px; margin-top: 8px; background: rgba(255,255,255,.15); border-radius: 5px; }
+  #barFarm { position: absolute; top: 0; left: 0; height: 10px; background: #5fbf4a; border-radius: 5px 0 0 5px; }
+  #barMe, #barBoss { position: absolute; top: -3px; width: 8px; height: 16px; border-radius: 3px; transform: translateX(-50%); }
+  #barMe { background: #ddd; }
+  #barBoss { background: #ff3b3b; }
+  .barNest { position: absolute; top: 1px; width: 8px; height: 8px; border-radius: 50%; transform: translateX(-50%); background: #ffcc33; }
+  #hudR { position: absolute; top: 14px; right: 14px; background: rgba(0,0,0,.45); padding: 10px 16px; border-radius: 12px; text-align: right; }
+  #hpWrap { display: flex; align-items: center; justify-content: flex-end; gap: 6px; font-size: 12px; font-weight: bold; margin-bottom: 6px; }
+  #hpBar { width: 120px; height: 10px; border-radius: 5px; background: rgba(255,255,255,.18); overflow: hidden; }
+  #hpFill { height: 100%; width: 100%; background: #3ccf4e; transition: width .2s, background .2s; }
+  #hMoney { font-size: 26px; font-weight: bold; color: #ffd23f; }
+  #hIncome { font-size: 13px; color: #b8ffb0; }
+  #hFarm { font-size: 13px; margin-top: 4px; }
+
+  /* 달걀을 들었을 때 위에 뜨는 빨간 박스 */
+  #jumpBanner { position: absolute; top: 14px; left: 50%; transform: translateX(-50%); padding: 10px 34px; border-radius: 14px;
+    background: linear-gradient(180deg, #ff6b6b 0%, #e01e1e 55%, #8a0000 100%); border: 2px solid #3a0000;
+    font-size: 28px; font-weight: 900; color: #fff; -webkit-text-stroke: 1.5px #000; paint-order: stroke fill;
+    text-shadow: -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 2px 2px 0 #000; box-shadow: 0 4px 14px rgba(0,0,0,.5); }
+  #secretBanner { position: absolute; top: 80px; left: 50%; transform: translateX(-50%); padding: 10px 26px; border-radius: 14px;
+    background: linear-gradient(90deg, #6a1fb0, #ff4dd2, #ffb000); font-size: 20px; font-weight: bold; white-space: nowrap;
+    text-shadow: 0 0 4px #000, 0 0 2px #000; box-shadow: 0 0 24px #ff4dd2; }
+  #toast { position: absolute; top: 24%; left: 50%; transform: translateX(-50%); font-size: 26px; font-weight: bold; text-shadow: 0 2px 8px #000, 0 0 3px #000; text-align: center; opacity: 0; transition: opacity .3s; white-space: pre-line; }
+  #prompt { position: absolute; bottom: 110px; left: 50%; transform: translateX(-50%); font-size: 20px; font-weight: bold; background: rgba(0,0,0,.6); padding: 10px 20px; border-radius: 14px; border: 2px solid #fff; white-space: nowrap; text-align: center; }
+  #prompt .pbar { margin-top: 8px; height: 10px; border-radius: 5px; background: rgba(255,255,255,.2); overflow: hidden; }
+  #prompt .pbar div { height: 100%; background: #fff; }
+  /* 아래 핫바 10칸: 1~9번 = 인벤토리 1~9번 칸, 10번 = 인벤토리 열기 */
+  #hotbar { position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%); display: flex; gap: 4px; pointer-events: auto;
+    background: rgba(0,0,0,.35); padding: 4px; border-radius: 14px; }
+  .hotCell { position: relative; width: min(52px, calc(8.4 * var(--vw, 1vw))); height: min(52px, calc(8.4 * var(--vw, 1vw))); border-radius: 10px; border: 2px solid rgba(255,255,255,.35);
+    background: rgba(0,0,0,.45); display: flex; align-items: center; justify-content: center; cursor: pointer; font-family: inherit; color: #fff; padding: 0; }
+  .hotCell:hover { background: rgba(0,0,0,.65); }
+  .hotCell.sel { border-color: #ffcc33; box-shadow: 0 0 8px #ffcc33; }
+  .hotCell .ico { font-size: min(28px, calc(5 * var(--vw, 1vw))); }
+  .hotCell .egg { width: min(24px, calc(4.4 * var(--vw, 1vw))); height: min(32px, calc(5.8 * var(--vw, 1vw))); }
+  .hotNo { position: absolute; top: 1px; left: 4px; font-size: 10px; color: #ccd; }
+  #bagBtn { font-size: min(28px, calc(5 * var(--vw, 1vw))); line-height: 1; border-color: rgba(255,255,255,.6); }
+  #hotName { position: absolute; bottom: 78px; left: 50%; transform: translateX(-50%); font-size: 14px; font-weight: bold; background: rgba(0,0,0,.5);
+    padding: 3px 12px; border-radius: 8px; white-space: nowrap; }
+  .invCell.hot { border-color: rgba(120,200,255,.45); background: rgba(120,200,255,.08); }
+  /* 화면을 꽉 채우는 인벤토리 */
+  .invFull { position: fixed; inset: 0; background: linear-gradient(160deg, #2b2f4a, #141626); overflow-y: auto; padding: 0 24px 40px; }
+  .invHead { display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; background: #23273f; padding: 14px 0 10px; z-index: 2; }
+  .invHead .btn { margin: 0; }
+  .invDetail { display: flex; align-items: center; gap: 14px; background: rgba(255,255,255,.06); border-radius: 12px; padding: 12px 16px; margin: 10px 0 16px; min-height: 84px; text-align: left; line-height: 1.6; }
+  .invDetail .btn { margin: 6px 0 0; padding: 8px 16px; font-size: 15px; }
+  .invGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 10px; }
+  .invCell { position: relative; aspect-ratio: 1; background: rgba(255,255,255,.07); border: 2px solid rgba(255,255,255,.1); border-radius: 12px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 12px; }
+  .invCell.has { cursor: pointer; }
+  .invCell.has:hover { background: rgba(255,255,255,.13); }
+  .invCell.sel { border-color: #ffcc33; }
+  .invCell .egg { width: 30px; height: 40px; }
+  .ico { font-size: 36px; line-height: 1; }
+  .invName { margin-top: 4px; text-align: center; padding: 0 4px; }
+  .invNo { position: absolute; top: 4px; left: 6px; font-size: 10px; color: #778; }
+  .cellBtn { margin-top: 4px; padding: 3px 6px; font-size: 11px; font-weight: bold; border: none; border-radius: 8px; background: #ffcc33; color: #3a2a00; cursor: pointer; font-family: inherit; }
+  .cellBtn:hover { filter: brightness(1.1); }
+  #vignette { position: absolute; inset: 0; box-shadow: inset 0 0 160px 40px rgba(255,0,0,.55); opacity: 0; transition: opacity .25s; }
+  #flyBar { position: absolute; bottom: 130px; left: 50%; transform: translateX(-50%); width: 220px; background: rgba(0,0,0,.55); border-radius: 10px; padding: 6px 10px; font-size: 14px; text-align: center; }
+  #flyBar .pbar { margin-top: 4px; height: 8px; border-radius: 4px; background: rgba(255,255,255,.2); overflow: hidden; }
+  #flyBar .pbar div { height: 100%; background: #9fe3ff; }
+  .hudBtn { position: absolute; right: 14px; pointer-events: auto; padding: 10px 18px; font-size: 16px; font-weight: bold; border: none; border-radius: 12px; cursor: pointer; font-family: inherit; color: #fff; box-shadow: 0 4px 0 rgba(0,0,0,.35); }
+  /* 오른쪽 가운데 살짝 아래 — 눌러서 날기 */
+  #btnFly { position: absolute; right: 18px; top: 56%; transform: translateY(-50%); pointer-events: auto; width: 84px; height: 84px; border-radius: 50%;
+    border: 3px solid rgba(255,255,255,.75); background: radial-gradient(circle at 35% 30%, #8fd8ff, #2f7fd0); color: #fff; font-family: inherit;
+    font-size: 13px; font-weight: bold; cursor: pointer; line-height: 1.15; box-shadow: 0 5px 0 rgba(0,0,0,.35); text-shadow: 0 1px 2px #000; }
+  #btnFly b { display: block; font-size: 30px; }
+  #btnFly:active { transform: translateY(calc(-50% + 3px)); box-shadow: 0 2px 0 rgba(0,0,0,.35); }
+  #btnFly.off { filter: grayscale(1); opacity: .6; }
+  #btnFly.land { background: radial-gradient(circle at 35% 30%, #ffc58f, #d06a2f); }
+  #btnDrop { bottom: 64px; background: #e0753a; }
+
+  /* ---------- 모바일 터치 조작 (터치 화면에서만 보임) ---------- */
+  canvas { touch-action: none; }
+  /* 게임 전체 화면 (휴대폰을 세로로 들면 통째로 90° 돌려서 항상 가로) */
+  #app { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; overflow: hidden; transform-origin: 0 0; }
+  #touchUI { position: absolute; inset: 0; pointer-events: none; }
+  #joy { position: absolute; left: 28px; bottom: 84px; width: 124px; height: 124px; border-radius: 50%; pointer-events: auto; touch-action: none;
+    background: rgba(255,255,255,.12); border: 2px solid rgba(255,255,255,.35); }
+  #joyKnob { position: absolute; left: 50%; top: 50%; width: 56px; height: 56px; margin: -28px 0 0 -28px; border-radius: 50%; background: rgba(255,255,255,.6); pointer-events: none; }
+  .tBtn { position: absolute; pointer-events: auto; touch-action: none; width: 78px; height: 78px; border-radius: 50%; border: 3px solid rgba(255,255,255,.7);
+    background: rgba(0,0,0,.4); color: #fff; font-size: 28px; font-weight: bold; font-family: inherit; line-height: 1;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; -webkit-user-select: none; }
+  .tBtn small { font-size: 11px; margin-top: 3px; }
+  .tBtn.on { background: rgba(255,204,51,.55); }
+  #tJump { right: 24px; bottom: 96px; }
+  #tAct { right: 116px; bottom: 96px; width: 70px; height: 70px; background: rgba(255,150,40,.45); }
+  #tPause { left: 28px; bottom: 222px; width: 46px; height: 46px; font-size: 18px; }
+  body.touch #btnFly { top: auto; bottom: 186px; right: 24px; width: 78px; height: 78px; transform: none; }
+  body.touch #btnFly:active { transform: translateY(3px); }
+  body.touch #btnDrop { right: 116px; bottom: 180px; }
+  body.touch #prompt { font-size: 15px; bottom: 96px; max-width: calc(100% - 360px); white-space: normal; padding: 8px 12px; }
+  body.touch #flyBar { bottom: 190px; }
+    body.touch.short #hudL, body.touch.short #hudR { padding: 6px 10px; min-width: 0; }
+    body.touch.short #hStage { font-size: 14px; } body.touch.short #hStatus, body.touch.short #hTime { font-size: 12px; }
+    body.touch.short #hMoney { font-size: 18px; } body.touch.short #hIncome, body.touch.short #hFarm, body.touch.short #hFly, body.touch.short #hpWrap { font-size: 11px; }
+    body.touch.short #hpBar { width: 80px; }
+    body.touch.short #toast { font-size: 19px; }
+  .shop { display: grid; gap: 10px; margin-top: 14px; text-align: left; }
+  .shop .item { display: flex; align-items: center; justify-content: space-between; gap: 10px; background: rgba(255,255,255,.07); border-radius: 12px; padding: 12px 14px; }
+  .shop .item .btn { margin: 0; padding: 8px 16px; font-size: 15px; }
+  .btn:disabled { opacity: .45; cursor: default; }
+  .wingIcon { display: inline-block; width: 34px; height: 22px; border-radius: 50% 50% 10% 50%; margin-right: 8px; vertical-align: middle; border: 1px solid #888; }
+
+  #overlay { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(10,10,25,.72); backdrop-filter: blur(3px); }
+  .panel { background: linear-gradient(160deg, #2b2f4a, #1b1d30); border: 2px solid rgba(255,255,255,.15); border-radius: 22px; padding: 30px 38px; text-align: center; max-width: 760px; width: calc(100% - 32px); max-height: calc(92 * var(--vh, 1vh)); overflow: auto; box-shadow: 0 20px 60px rgba(0,0,0,.5); }
+  .panel h1 { font-size: 42px; margin-bottom: 6px; }
+  .panel h2 { font-size: 30px; margin-bottom: 10px; }
+  .panel p { line-height: 1.6; color: #d8dcf0; }
+  .rules { text-align: left; margin: 16px auto; background: rgba(255,255,255,.06); padding: 14px 18px; border-radius: 12px; font-size: 15px; line-height: 1.75; }
+  .btn { display: inline-block; margin: 14px 6px 0; padding: 12px 28px; font-size: 18px; font-weight: bold; border: none; border-radius: 14px; cursor: pointer; background: #ffcc33; color: #3a2a00; box-shadow: 0 5px 0 #b8860b; font-family: inherit; }
+  .btn:hover { filter: brightness(1.08); }
+  .btn:active { transform: translateY(3px); box-shadow: 0 2px 0 #b8860b; }
+  .netBox { display: flex; flex-wrap: wrap; gap: 6px 14px; justify-content: center; align-items: center; margin-top: 10px; font-size: 15px; }
+  #netStatus { width: 100%; color: #9dff9d; font-weight: bold; }
+  .netBox input { margin-left: 6px; padding: 8px 10px; font-size: 16px; border-radius: 10px; border: 2px solid rgba(255,255,255,.25); background: rgba(0,0,0,.3); color: #fff; font-family: inherit; width: 150px; }
+  .btn.gray { background: #8d93b5; color: #1b1d30; box-shadow: 0 5px 0 #5a5f80; }
+
+  .egg { width: 70px; height: 92px; border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%; display: inline-block; position: relative; }
+  .egg::after { content: ''; position: absolute; left: 22%; top: 14%; width: 22%; height: 18%; border-radius: 50%; background: rgba(255,255,255,.55); filter: blur(2px); }
+  .codex { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; margin-top: 14px; }
+  .codex .cell { background: rgba(255,255,255,.06); border-radius: 12px; padding: 10px 4px; font-size: 12px; }
+  .codex .cell .egg { width: 44px; height: 58px; }
+  .codex .unknown { background: #444 !important; box-shadow: none !important; }
+  .codex .unknown::after { display: none; }
+  .row-label { grid-column: 1 / -1; text-align: left; font-weight: bold; margin-top: 6px; }
+  body.narrow .panel { padding: 20px 16px; } body.narrow .panel h1 { font-size: 30px; } body.narrow .codex { grid-template-columns: repeat(3, 1fr); }
+</style>
 </head>
 <body>
-<p>🥚 게임으로 이동 중... <a href="%EB%8B%AC%EA%B1%80%EB%8F%84%EB%91%913D.html">여기를 눌러 시작</a></p>
+<div id="app">
+<div id="hud" class="hidden">
+  <div id="vignette"></div>
+  <div id="hudL"><div id="hStage"></div><div id="hStatus"></div><div id="hTime"></div>
+    <div id="bar"><div id="barFarm"></div><div id="barMe"></div><div id="barBoss" class="hidden"></div></div></div>
+  <div id="hudR"><div id="hpWrap">HP <div id="hpBar"><div id="hpFill"></div></div><span id="hpText">100</span></div><div id="hMoney"></div><div id="hFly" style="font-size:13px"></div><div id="hIncome"></div><div id="hFarm"></div></div>
+  <div id="jumpBanner" class="hidden">점프 하다</div>
+  <div id="secretBanner" class="hidden"></div>
+  <div id="toast"></div>
+  <div id="prompt" class="hidden"></div>
+  <div id="flyBar" class="hidden"></div>
+  <button id="btnFly" class="hidden" onclick="tryFly();this.blur()" title="날기 (Shift + Space)"></button>
+  <button id="btnDrop" class="hudBtn hidden" onclick="dropEgg()">🥚 달걀 내리기 (R)</button>
+  <div id="hotName" class="hidden"></div>
+  <div id="hotbar"></div>
+  <div id="touchUI" class="hidden">
+    <div id="joy"><div id="joyKnob"></div></div>
+    <button id="tAct" class="tBtn">✋<small>E</small></button>
+    <button id="tJump" class="tBtn">⤒<small>점프</small></button>
+    <button id="tPause" class="tBtn">⏸</button>
+  </div>
+</div>
+<div id="overlay"></div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/5.10.1/mqtt.min.js"></script>
+<script>
+// =====================================================================
+//  데이터
+// =====================================================================
+const MAP_HW = 9;                 // 맵 절반 폭 (직사각형 맵: z = -9 ~ 9)
+const FARM_X0 = -34;              // 농장 시작 (맵 맨 뒤)
+const PEN = { x0: -27, x1: -12, z: 7.5 };   // 정사각형 울타리 우리 (15 × 15) — 여기서만 달걀 설치 & 돈 벌기
+// 우리 5개 (플레이어 1명당 1개). 농장은 옆(z)으로 넓어짐
+const PEN_N = 5, PEN_STEP = 16;
+const penZ = k => (k - 2) * PEN_STEP;                     // 0~4번 우리의 가운데 z
+const FARM_HW = 2 * PEN_STEP + PEN.z + 1.5;               // 농장 절반 폭
+const PEN_COLORS = [0xe05555, 0x4f8fe0, 0x9a9a9a, 0x50c060, 0xe0b040];
+let myPen = 2;                                            // 혼자 할 때는 가운데 우리
+
+// 인벤토리 & 판매
+const INV_MAX = 100;
+const EMOJI = { chicken: '🐔', pig: '🐷', dog: '🐶', cow: '🐮', duck: '🦆', monkey: '🐵', wolf: '🐺', tiger: '🐯', capybara: '🦫', lion: '🦁',
+  tricera: '🦕', brachio: '🦕', anky: '🦖', ptera: '🦅', trex: '🦖', dragon: '🐉' };
+const EGG_PRICE = [200, 1500, 4000], SECRET_EGG_PRICE = 30000;   // 알 판매가 (등급이 드러나지 않게 단계별 고정)
+const PET_PRICE_MULT = 150;                                        // 펫 판매가 = 초당 수입 × 150
+
+// 날개 상점
+const WINGS = [
+  { id: 'white',  name: '흰색 날개', price: 100000,  dur: 2,   color: 0xffffff, css: '#ffffff' },
+  { id: 'black',  name: '검은 날개', price: 1000000, dur: 2.5, color: 0x1a1a1a, css: 'linear-gradient(135deg,#555,#0a0a0a)' },
+  { id: 'silver', name: '은색 날개', price: 3000000, dur: 3,   color: 0xc8d0d8, css: 'linear-gradient(135deg,#f4f6f8,#9aa4ae)' },
+  { id: 'gold',   name: '금색 날개', price: 5000000, dur: 4.5, color: 0xffcc33, css: 'linear-gradient(135deg,#fff3a0,#e0a800)' },
+];
+const BIOMES = ['초원', '정글', '공룡 지역'];
+
+// 등급 순서: 0 희귀, 1 레어, 2 에픽, 3 신화, 4 전설, 5 시크릿
+const SECRET = 5;
+// 등장 확률 (%) — 1·2단계는 합 100%, 3단계는 시크릿 1% 포함 합 100%
+const WEIGHTS = [
+  [40, 30, 20, 3, 7],
+  [40, 30, 20, 3, 7],
+  [39, 30, 20, 3, 7, 1],
+];
+// 부화하는 동물: inc = 초당 돈, ht = 부화 시간(초), h = 크기
+const ANIMALS = [
+  [
+    { name: '닭',   type: 'chicken', inc: 1,  ht: 10, h: 0.85 },
+    { name: '돼지', type: 'pig',     inc: 5,  ht: 20, h: 0.95 },
+    { name: '개',   type: 'dog',     inc: 10, ht: 50, h: 1.0 },
+    { name: '소',   type: 'cow',     inc: 50, ht: 60, h: 1.6 },
+    { name: '오리', type: 'duck',    inc: 70, ht: 90, h: 0.8 },
+  ],
+  [
+    { name: '원숭이',   type: 'monkey',   inc: 15, ht: 110, h: 1.0 },
+    { name: '늑대',     type: 'wolf',     inc: 20, ht: 120, h: 1.15 },
+    { name: '호랑이',   type: 'tiger',    inc: 30, ht: 145, h: 1.3 },
+    { name: '카피바라', type: 'capybara', inc: 50, ht: 155, h: 0.9 },
+    { name: '사자',     type: 'lion',     inc: 80, ht: 180, h: 1.45 },
+  ],
+  [
+    { name: '트리케라톱스',       type: 'tricera', inc: 20,  ht: 130, h: 1.6 },
+    { name: '브라키오사우루스',   type: 'brachio', inc: 50,  ht: 150, h: 3.0 },
+    { name: '앙키케팔로사우루스', type: 'anky',    inc: 70,  ht: 180, h: 1.5 },
+    { name: '프테라노돈',         type: 'ptera',   inc: 100, ht: 190, h: 1.3 },
+    { name: '티렉스',             type: 'trex',    inc: 150, ht: 240, h: 2.4 },
+    { name: '드래곤',             type: 'dragon',  inc: 300, ht: 900, h: 2.6, secret: true },
+  ],
+];
+
+// 낮/밤: 낮 5분 동안 달걀을 가져올 수 있고, 밤 10초 동안 방벽 + 달걀이 3배 빨리 자람
+const DAY = 300, NIGHT = 10, CYCLE = DAY + NIGHT, NIGHT_MULT = 3;
+
+// 단계 (일직선 1 → 2 → 3). 각 단계 끝 둥지에 보스가 잠들어 있음
+const LEVELS = [
+  { name: '1단계 · 초원', boss: '닭', bossType: 'chicken', bossH: 1.7, emoji: '🐔', sky: 0x9fd8ff, nest: 0xc9a25a, color: 0x7fe07f,
+    speed: 4.2, catchR: 1.2, sink: 0.6,
+    d: { n: 14, size: 3.25, gap: 3.3, rise: 0.55, wig: 2.4, mov: 0.20, dis: 0.12, spin: 0.12, spike: 0.15 } },
+  { name: '2단계 · 정글', boss: '호랑이', bossType: 'tiger', bossH: 2.6, emoji: '🐯', sky: 0x8fc7a8, nest: 0x6b5a3a, color: 0x4fb0ff,
+    speed: 3.4, catchR: 1.8, sink: 0.8,
+    d: { n: 18, size: 2.5, gap: 3.9, rise: 0.7, wig: 3.0, mov: 0.28, dis: 0.20, spin: 0.18, spike: 0.15 } },
+  { name: '3단계 · 공룡 지역', boss: '티라노사우루스', bossType: 'trex', bossH: 7, emoji: '🦖', sky: 0x5a2a1c, nest: 0x4a3a30, color: 0xff8a3d,
+    speed: 4.0, catchR: 2.4, sink: 2.2,
+    d: { n: 22, size: 1.9, gap: 4.5, rise: 0.85, wig: 3.8, mov: 0.30, dis: 0.28, spin: 0.24, spike: 0.15 } },
+];
+const NIGHT_SKY = 0x0b1030;
+
+// 16종류의 서로 다른 달걀 디자인 (단계 × 등급)
+const EGGS = [
+  [
+    { pat: 'plain', c1: '#f3efe4', rough: .6, css: 'radial-gradient(circle at 35% 30%, #fff, #ece6d8 60%, #c9bfaa)' },
+    { pat: 'speckle', c1: '#b8743f', c2: '#5a3418', rough: .7, css: 'radial-gradient(#5a3418 1px, transparent 1.6px) 0 0/9px 11px, radial-gradient(circle at 35% 30%, #d9a56f, #a0602f 75%)' },
+    { pat: 'spots', c1: '#f6ead0', c2: '#3b2a1a', rough: .5, css: 'radial-gradient(#3b2a1a 3px, transparent 4px) 0 0/16px 18px, radial-gradient(#3b2a1a 2px, transparent 3px) 8px 9px/16px 18px, radial-gradient(circle at 35% 30%, #fff6e0, #e5d3ab 75%)' },
+    { pat: 'plain', c1: '#d4dbe2', metal: .95, rough: .18, css: 'radial-gradient(circle at 35% 28%, #fff, #c9d1d9 30%, #7d8894 70%, #4b535c)' },
+    { pat: 'plain', c1: '#ffcc33', metal: 1, rough: .15, glow: .35, css: 'radial-gradient(circle at 35% 28%, #fff7c2, #ffd23f 35%, #c98a00 75%, #7a5200)' },
+  ],
+  [
+    { pat: 'stripes', c1: '#f08a1c', c2: '#1a1208', rough: .7, css: 'radial-gradient(circle at 35% 30%, rgba(255,255,255,.45), transparent 50%), repeating-linear-gradient(100deg, #f08a1c 0 10px, #1a1208 10px 15px)' },
+    { pat: 'plain', c1: '#2fa86a', metal: .2, rough: .08, css: 'radial-gradient(circle at 35% 30%, #c8ffd8, #2fa86a 55%, #0d5434)' },
+    { pat: 'flame', c1: '#ff2a00', c2: '#ffd84a', rough: .4, emap: 1, css: 'radial-gradient(circle at 35% 30%, #fff3a0, #ff7a1a 50%, #b31d00)' },
+    { pat: 'spots', c1: '#f0a020', c2: '#ffd98a', rough: .08, opacity: .85, glow: .25, css: 'radial-gradient(circle at 35% 30%, #fff0b0, #f0a020 55%, #8a4a00)' },
+    { pat: 'stripes', c1: '#eaf6ff', c2: '#7fb8ff', rough: .05, opacity: .85, glow: .45, css: 'radial-gradient(circle at 35% 30%, rgba(255,255,255,.9), transparent 45%), repeating-linear-gradient(100deg, #e8f6ff 0 11px, #8fc6ff 11px 15px)' },
+  ],
+  [
+    { pat: 'cracks', c1: '#a39a88', c2: '#4a4236', rough: .95, css: 'repeating-linear-gradient(60deg, transparent 0 14px, rgba(60,50,40,.55) 14px 15px), radial-gradient(circle at 35% 30%, #d8d0c0, #8f8676 75%)' },
+    { pat: 'lava', c1: '#1b1210', c2: '#ff6a00', rough: .8, emap: 1.3, css: 'repeating-linear-gradient(35deg, #1b1210 0 9px, #ff6a00 9px 11px), #1b1210' },
+    { pat: 'cracks', c1: '#9be3ff', c2: '#e8fbff', rough: .05, opacity: .75, glow: .2, css: 'radial-gradient(circle at 35% 30%, #ffffff, #9be3ff 50%, #2f8fd0)' },
+    { pat: 'zigzag', c1: '#5a1aa0', c2: '#ffe14a', rough: .3, emap: 1, css: 'repeating-linear-gradient(120deg, transparent 0 12px, #ffe14a 12px 15px), radial-gradient(circle at 35% 30%, #d9a3ff, #6a1fb0 70%, #2b0850)' },
+    { pat: 'rainbow', rough: .2, emap: .7, css: 'linear-gradient(160deg, #ff4d4d, #ffa64d, #ffff4d, #4dff88, #4dc3ff, #a64dff)' },
+    { pat: 'scales', c1: '#3a0a14', c2: '#ffb020', rough: .3, emap: 1.4, css: 'radial-gradient(circle at 50% 0, transparent 6px, #ffb020 7px, transparent 8px) 0 0/14px 10px, radial-gradient(circle at 35% 30%, #8a1a2a, #3a0a14 75%)' },
+  ],
+];
+EGGS.forEach((row, lv) => row.forEach((e, g) => { e.lv = lv; e.g = g; }));
+const animalOf = (lv, g) => ANIMALS[lv][g];
+const eggLabel = (lv, g) => g === SECRET ? '🐉 드래곤 에그' : '달걀';   // 등급은 표시하지 않음
+
+// =====================================================================
+//  낮/밤 시간 (실제 시계 기준 → 꺼져 있어도 똑같이 흘러감)
+// =====================================================================
+const cyclePos = ms => (ms / 1000) % CYCLE;
+const cycleIndex = ms => Math.floor(ms / 1000 / CYCLE);
+const isNightAt = ms => cyclePos(ms) >= DAY;
+// 누적 "성장 시간" (밤에는 3배)
+function growthWith(ms, day, nightLen) {
+  const cyc = day + nightLen, t = ms / 1000, c = Math.floor(t / cyc), r = t - c * cyc;
+  return c * (day + nightLen * NIGHT_MULT) + (r < day ? r : day + (r - day) * NIGHT_MULT);
+}
+const growth = ms => growthWith(ms, DAY, NIGHT);
+function growthInv(v) {
+  const per = DAY + NIGHT * NIGHT_MULT, c = Math.floor(v / per), r = v - c * per;
+  return (c * CYCLE + (r < DAY ? r : DAY + (r - DAY) / NIGHT_MULT)) * 1000;
+}
+
+// =====================================================================
+//  저장 (브라우저에 저장 → 껐다 켜도 달걀/동물/돈 유지, 꺼져 있어도 달걀은 자람)
+// =====================================================================
+const SAVE_KEY = 'eggthief_farm_v3';
+const SLOTS = 18;
+let SAVE = null, offlineEarned = 0;
+function freshSave() { return { money: 0, slots: [], codex: [], wings: [], equip: null, inv: [], dayLen: DAY, t: Date.now() }; }
+// 부화 칸: { lv, g, prog, pt } — pt(실제 시각)에 prog만큼 자라 있었음. 그 뒤로 흐른 시간만큼 더 자람 (밤엔 3배)
+const newSlot = (lv, g, prog) => ({ lv, g, prog, pt: Date.now() });
+const progNow = s => s.prog + (growth(Date.now()) - growth(s.pt));
+const growLeft = s => animalOf(s.lv, s.g).ht - progNow(s);
+const isHatched = s => growLeft(s) <= 0;
+function totalIncome() { return SAVE.slots.reduce((a, s) => a + (s && isHatched(s) ? animalOf(s.lv, s.g).inc : 0), 0); }
+function loadSave() {
+  SAVE = freshSave(); delete SAVE.dayLen;
+  try { const s = JSON.parse(localStorage.getItem(SAVE_KEY)); if (s) Object.assign(SAVE, s); } catch (e) {}
+  // 예전 형식(f0) 칸을 새 형식으로 바꿈. 마지막 저장 시각보다 더 자라 있을 수는 없게 막음
+  const oldDay = SAVE.dayLen || 180;
+  if (oldDay !== DAY) SAVE.flyDay = null;
+  SAVE.slots.forEach((s, i) => {
+    if (!s || s.pt !== undefined) return;
+    const ht = animalOf(s.lv, s.g).ht;
+    const ok = p => p >= 0 && p < 1e7;              // 정상 값은 1천만 초(약 4개월)보다 작음
+    let prog = growthWith(SAVE.t, oldDay, NIGHT) - s.f0;
+    if (!ok(prog)) prog = growth(SAVE.t) - s.f0;    // 이미 5분 기준으로 저장된 칸
+    if (!ok(prog)) prog = 0;                        // 그래도 깨진 값이면 처음부터 다시 자람
+    SAVE.slots[i] = { lv: s.lv, g: s.g, prog: Math.min(prog, ht + 1), pt: SAVE.t };
+  });
+  SAVE.dayLen = DAY;
+  // 꺼져 있던 동안 부화한 동물들이 번 돈
+  const now = Date.now(); offlineEarned = 0;
+  SAVE.slots.forEach(s => {
+    if (!s) return;
+    const a = animalOf(s.lv, s.g), hatchedAt = growthInv(growth(s.pt) + a.ht - s.prog);
+    const from = Math.max(SAVE.t, hatchedAt);
+    if (now > from) offlineEarned += a.inc * (now - from) / 1000;
+  });
+  SAVE.money += offlineEarned;
+}
+function save() { SAVE.t = Date.now(); try { localStorage.setItem(SAVE_KEY, JSON.stringify(SAVE)); } catch (e) {} }
+const fmt = n => Math.floor(n).toLocaleString('ko-KR');
+const mmss = s => { s = Math.max(0, Math.ceil(s)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
+
+// =====================================================================
+//  유틸
+// =====================================================================
+function rngFn(seed) {
+  return function () {
+    seed |= 0; seed = seed + 0x6D2B79F5 | 0;
+    let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+function rollGrade(lv, rand = Math.random) {
+  const w = WEIGHTS[lv], sum = w.reduce((a, b) => a + b, 0);
+  let r = rand() * sum;
+  for (let g = 0; g < w.length; g++) { if (r < w[g]) return g; r -= w[g]; }
+  return 0;
+}
+const $ = id => document.getElementById(id);
+function mat(color, o = {}) { return new THREE.MeshStandardMaterial(Object.assign({ color, roughness: 0.8 }, o)); }
+function mesh(geo, m, shadow = true) { const me = new THREE.Mesh(geo, m); me.castShadow = shadow; me.receiveShadow = true; return me; }
+function eggHTML(lv, g) {
+  const glow = g === SECRET ? 'box-shadow:0 0 24px #ff4dd2;' : '';
+  return `<div class="egg" style="background:${EGGS[lv][g].css};${glow}"></div>`;
+}
+
+let AC = null;
+function sfx(type) {
+  try {
+    if (!AC) AC = new (window.AudioContext || window.webkitAudioContext)();
+    const now = AC.currentTime;
+    const tone = (f1, f2, dur, wave = 'square', vol = 0.08, delay = 0) => {
+      const o = AC.createOscillator(), g = AC.createGain();
+      o.type = wave; o.frequency.setValueAtTime(f1, now + delay);
+      o.frequency.exponentialRampToValueAtTime(f2, now + delay + dur);
+      g.gain.setValueAtTime(vol, now + delay); g.gain.exponentialRampToValueAtTime(0.001, now + delay + dur);
+      o.connect(g); g.connect(AC.destination); o.start(now + delay); o.stop(now + delay + dur + 0.02);
+    };
+    if (type === 'jump') tone(380, 620, 0.12, 'square', 0.05);
+    if (type === 'pick') [523, 659, 784, 1046].forEach((f, i) => tone(f, f, 0.15, 'sine', 0.12, i * 0.08));
+    if (type === 'tick') tone(900, 900, 0.04, 'sine', 0.05);
+    if (type === 'roar') { tone(180, 60, 0.9, 'sawtooth', 0.16); tone(240, 90, 0.8, 'square', 0.06, 0.05); }
+    if (type === 'die') tone(400, 70, 0.4, 'sawtooth', 0.08);
+    if (type === 'caught') tone(220, 40, 0.8, 'sawtooth', 0.14);
+    if (type === 'clear') [523, 659, 784, 659, 784, 1046].forEach((f, i) => tone(f, f, 0.2, 'triangle', 0.12, i * 0.11));
+    if (type === 'hatch') [784, 988, 1175, 1568].forEach((f, i) => tone(f, f, 0.12, 'triangle', 0.1, i * 0.07));
+    if (type === 'night') tone(300, 150, 1.0, 'sine', 0.12);
+    if (type === 'secret') [523, 784, 1046, 1568, 2093].forEach((f, i) => tone(f, f, 0.25, 'triangle', 0.12, i * 0.12));
+    if (type === 'fly') tone(500, 900, 0.25, 'sine', 0.08);
+    if (type === 'buy') [660, 880, 1100].forEach((f, i) => tone(f, f, 0.1, 'square', 0.07, i * 0.06));
+  } catch (e) {}
+}
+
+let toastTimer = 0, secretTimer = 0;
+function toast(msg, dur = 2.2) { const t = $('toast'); t.textContent = msg; t.style.opacity = 1; toastTimer = dur; }
+
+function roundRect(x, w, h, r) {
+  x.beginPath(); x.moveTo(r, 0); x.lineTo(w - r, 0); x.quadraticCurveTo(w, 0, w, r); x.lineTo(w, h - r);
+  x.quadraticCurveTo(w, h, w - r, h); x.lineTo(r, h); x.quadraticCurveTo(0, h, 0, h - r); x.lineTo(0, r); x.quadraticCurveTo(0, 0, r, 0); x.fill();
+}
+function textSprite(lines, w = 512, h = 256, scale = 7, bg = true) {
+  const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+  const x = cv.getContext('2d');
+  if (bg) { x.fillStyle = 'rgba(15,15,30,0.78)'; roundRect(x, w, h, 30); }
+  x.textAlign = 'center'; x.textBaseline = 'middle';
+  lines.forEach(l => {
+    x.font = l.font;
+    if (!bg) { x.lineWidth = 8; x.strokeStyle = '#000'; x.strokeText(l.text, w / 2, l.y); }
+    x.fillStyle = l.color; x.fillText(l.text, w / 2, l.y);
+  });
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(cv), transparent: true, depthWrite: false }));
+  s.scale.set(scale, scale * h / w, 1);
+  return s;
+}
+function liveLabel(scale = 2.9) {
+  const W = 448, H = 112;
+  const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+  const x = cv.getContext('2d'), tex = new THREE.CanvasTexture(cv);
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false }));
+  s.scale.set(scale, scale * H / W, 1);
+  s.draw = (text, color = '#fff') => {
+    x.clearRect(0, 0, W, H); x.fillStyle = 'rgba(15,15,30,.8)'; roundRect(x, W, H, 26);
+    x.font = 'bold 44px Malgun Gothic'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillStyle = color; x.fillText(text, W / 2, H / 2 + 2);
+    tex.needsUpdate = true;
+  };
+  return s;
+}
+// 남은 시간을 "N분 N초"로
+const minSec = s => { s = Math.max(0, Math.ceil(s)); const m = Math.floor(s / 60); return m ? `${m}분 ${s % 60}초` : `${s}초`; };
+const haloTex = (() => {
+  const cv = document.createElement('canvas'); cv.width = cv.height = 128; const x = cv.getContext('2d');
+  const g = x.createRadialGradient(64, 64, 0, 64, 64, 64);
+  g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(0.3, 'rgba(255,255,255,.45)'); g.addColorStop(1, 'rgba(255,255,255,0)');
+  x.fillStyle = g; x.fillRect(0, 0, 128, 128); return new THREE.CanvasTexture(cv);
+})();
+function halo(color, size) {
+  const h = new THREE.Sprite(new THREE.SpriteMaterial({ map: haloTex, color, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
+  h.scale.setScalar(size); return h;
+}
+
+// ---------- 달걀 3D (크기: 닭의 1/1.25 = 플레이어의 약 0.4배) ----------
+const EGG_SCALE = 0.34;
+const EGG_GEO = (() => {
+  const pts = [];
+  for (let i = 0; i <= 24; i++) {
+    const a = i / 24 * Math.PI, y = -Math.cos(a);
+    pts.push(new THREE.Vector2(Math.max(Math.sin(a) * (0.78 - 0.1 * y), 0.0001), y));
+  }
+  return new THREE.LatheGeometry(pts, 32);
+})();
+const eggTexCache = {};
+function eggTexture(e) {
+  const key = e.lv + '-' + e.g; if (eggTexCache[key]) return eggTexCache[key];
+  const cv = document.createElement('canvas'); cv.width = cv.height = 256; const x = cv.getContext('2d');
+  const R = rngFn((e.g + 1) * 31 + e.lv * 977);
+  x.fillStyle = e.c1 || '#fff'; x.fillRect(0, 0, 256, 256);
+  if (e.pat === 'speckle' || e.pat === 'spots') {
+    x.fillStyle = e.c2; const big = e.pat === 'spots';
+    for (let i = 0; i < (big ? 70 : 900); i++) {
+      x.beginPath();
+      if (big) x.ellipse(R() * 256, R() * 256, 3 + R() * 8, 2 + R() * 6, R() * 3, 0, 7); else x.arc(R() * 256, R() * 256, 0.6 + R() * 1.4, 0, 7);
+      x.fill();
+    }
+  } else if (e.pat === 'stripes') {
+    x.fillStyle = e.c2;
+    for (let i = 0; i < 9; i++) {
+      const bx = i * 256 / 9 + R() * 10, w = 6 + R() * 8;
+      x.beginPath(); x.moveTo(bx, 0);
+      for (let yy = 0; yy <= 256; yy += 16) x.lineTo(bx + Math.sin(yy * 0.05 + i) * 8, yy);
+      for (let yy = 256; yy >= 0; yy -= 16) x.lineTo(bx + w * (0.3 + 0.7 * Math.sin(yy / 256 * Math.PI)) + Math.sin(yy * 0.05 + i) * 8, yy);
+      x.closePath(); x.fill();
+    }
+  } else if (e.pat === 'cracks' || e.pat === 'lava') {
+    const lava = e.pat === 'lava';
+    x.strokeStyle = e.c2; x.lineWidth = lava ? 3 : 1.6;
+    if (lava) { x.shadowColor = e.c2; x.shadowBlur = 10; }
+    for (let i = 0; i < (lava ? 30 : 22); i++) {
+      let px = R() * 256, py = R() * 256; x.beginPath(); x.moveTo(px, py);
+      for (let j = 0; j < 6; j++) { px += (R() - 0.5) * 40; py += (R() - 0.5) * 40; x.lineTo(px, py); }
+      x.stroke();
+    }
+  } else if (e.pat === 'zigzag') {
+    x.strokeStyle = e.c2; x.lineWidth = 5; x.shadowColor = e.c2; x.shadowBlur = 12;
+    for (let i = 0; i < 5; i++) {
+      let px = i * 51 + R() * 20; x.beginPath(); x.moveTo(px, 0);
+      for (let yy = 0, k = 0; yy <= 256; yy += 28, k++) { px += (k % 2 ? 18 : -18); x.lineTo(px, yy); }
+      x.stroke();
+    }
+  } else if (e.pat === 'flame') {
+    const g = x.createLinearGradient(0, 0, 0, 256); g.addColorStop(0, e.c1); g.addColorStop(1, e.c2);
+    x.fillStyle = g; x.fillRect(0, 0, 256, 256);
+    x.fillStyle = 'rgba(255,240,150,.8)';
+    for (let i = 0; i < 12; i++) {
+      const bx = R() * 256; x.beginPath(); x.moveTo(bx - 12, 256);
+      x.quadraticCurveTo(bx - 4, 150 + R() * 40, bx + R() * 10, 80 + R() * 60); x.quadraticCurveTo(bx + 6, 160, bx + 12, 256); x.fill();
+    }
+  } else if (e.pat === 'rainbow') {
+    const g = x.createLinearGradient(0, 0, 0, 256);
+    ['#ff4d4d', '#ffa64d', '#ffff4d', '#4dff88', '#4dc3ff', '#a64dff'].forEach((c, i) => g.addColorStop(i / 5, c));
+    x.fillStyle = g; x.fillRect(0, 0, 256, 256);
+  } else if (e.pat === 'scales') {
+    x.strokeStyle = e.c2; x.lineWidth = 3; x.shadowColor = e.c2; x.shadowBlur = 8;
+    for (let row = 0; row < 12; row++) for (let col = 0; col < 9; col++) {
+      x.beginPath(); x.arc(col * 30 + (row % 2) * 15, row * 22, 14, 0.1 * Math.PI, 0.9 * Math.PI); x.stroke();
+    }
+  }
+  return (eggTexCache[key] = new THREE.CanvasTexture(cv));
+}
+function makeEggMesh(lv, g) {
+  const e = EGGS[lv][g], tex = eggTexture(e);
+  const m = new THREE.MeshStandardMaterial({ map: tex, roughness: e.rough ?? 0.5, metalness: e.metal ?? 0,
+    transparent: (e.opacity ?? 1) < 1, opacity: e.opacity ?? 1 });
+  if (e.emap) { m.emissive = new THREE.Color(0xffffff); m.emissiveMap = tex; m.emissiveIntensity = e.emap; }
+  else if (e.glow) { m.emissive = new THREE.Color(e.c1); m.emissiveIntensity = e.glow; }
+  const me = mesh(EGG_GEO, m); me.scale.setScalar(EGG_SCALE);
+  return me;
+}
+const OUTLINE_MAT = new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.BackSide });
+
+// =====================================================================
+//  동물 모델 (16종 + 보스) — +Z 방향을 바라봄, targetH 높이로 맞춤
+// =====================================================================
+const texCache = {};
+function stripeMat() {
+  if (!texCache.stripe) {
+    const cv = document.createElement('canvas'); cv.width = cv.height = 128; const x = cv.getContext('2d');
+    x.fillStyle = '#f08a1c'; x.fillRect(0, 0, 128, 128); x.fillStyle = '#1a1208';
+    for (let i = 0; i < 8; i++) { x.beginPath(); x.moveTo(i * 16 + 4, 0); x.lineTo(i * 16 + 10, 60); x.lineTo(i * 16 + 3, 128); x.lineTo(i * 16 - 1, 128); x.lineTo(i * 16 + 5, 60); x.closePath(); x.fill(); }
+    texCache.stripe = new THREE.CanvasTexture(cv);
+  }
+  return mat(0xffffff, { map: texCache.stripe });
+}
+function cowMat() {
+  if (!texCache.cow) {
+    const cv = document.createElement('canvas'); cv.width = cv.height = 128; const x = cv.getContext('2d');
+    x.fillStyle = '#fafafa'; x.fillRect(0, 0, 128, 128); x.fillStyle = '#1a1a1a';
+    const R = rngFn(77); for (let i = 0; i < 9; i++) { x.beginPath(); x.ellipse(R() * 128, R() * 128, 8 + R() * 14, 6 + R() * 10, R() * 3, 0, 7); x.fill(); }
+    texCache.cow = new THREE.CanvasTexture(cv);
+  }
+  return mat(0xffffff, { map: texCache.cow });
+}
+
+function makeAnimal(type, targetH) {
+  const g = new THREE.Group(), legs = [], wings = [];
+  const M = c => (c instanceof THREE.Material) ? c : mat(c);
+  const add = (geo, c, x, y, z, p = g) => { const m = mesh(geo, M(c)); m.position.set(x, y, z); p.add(m); return m; };
+  const box = (w, h, d, c, x, y, z, p) => add(new THREE.BoxGeometry(w, h, d), c, x, y, z, p);
+  const ball = (r, c, x, y, z, sx = 1, sy = 1, sz = 1) => { const m = add(new THREE.SphereGeometry(r, 14, 10), c, x, y, z); m.scale.set(sx, sy, sz); return m; };
+  const cone = (r, h, c, x, y, z, rx = 0, rz = 0) => { const m = add(new THREE.ConeGeometry(r, h, 8), c, x, y, z); m.rotation.set(rx, 0, rz); return m; };
+  const cyl = (r1, r2, h, c, x, y, z, rx = 0, rz = 0) => { const m = add(new THREE.CylinderGeometry(r1, r2, h, 10), c, x, y, z); m.rotation.set(rx, 0, rz); return m; };
+  const leg = (x, y, z, len, th, c) => { const p = new THREE.Group(); p.position.set(x, y, z); box(th, len, th, c, 0, -len / 2, 0, p); g.add(p); legs.push(p); return p; };
+  const legs4 = (bw, bl, y, th, c) => [[-1, 1], [1, 1], [-1, -1], [1, -1]].forEach(([sx, sz]) => leg(sx * (bw / 2 - th / 2), y, sz * (bl / 2 - th / 2), y, th, c));
+  const eyes = (dx, y, z, c = 0x111111, r = 0.05) => [-1, 1].forEach(s => ball(r, c, s * dx, y, z));
+  const pair = f => [-1, 1].forEach(f);
+  const wing = (sd, y, z, w, d, c) => { const p = new THREE.Group(); p.position.set(sd * 0.3, y, z); box(w, 0.06, d, c, sd * w / 2, 0, 0, p); g.add(p); wings.push(p); };
+  const W = 0xfafafa, BLK = 0x111111;
+
+  switch (type) {
+    case 'chicken': {
+      const Y = 0xffb020, R = 0xe02020;
+      ball(0.5, W, 0, 0.75, 0, 1, 0.9, 1.2); ball(0.28, W, 0, 1.25, 0.45);
+      ball(0.09, R, 0, 1.55, 0.4); ball(0.1, R, 0, 1.56, 0.52);
+      cone(0.08, 0.22, Y, 0, 1.22, 0.78, Math.PI / 2); ball(0.07, R, 0, 1.08, 0.66); eyes(0.15, 1.32, 0.66);
+      cone(0.25, 0.5, W, 0, 1.05, -0.55, -0.7);
+      pair(s => ball(0.4, W, s * 0.47, 0.78, 0, 0.25, 0.55, 0.85));
+      pair(s => leg(s * 0.18, 0.45, 0, 0.45, 0.07, Y));
+      break;
+    }
+    case 'pig': {
+      const P = 0xffb3c1;
+      box(0.9, 0.7, 1.4, P, 0, 0.7, 0); legs4(0.9, 1.4, 0.35, 0.22, P);
+      box(0.6, 0.55, 0.5, P, 0, 0.85, 0.9); cyl(0.17, 0.17, 0.12, 0xff8fa8, 0, 0.8, 1.2, Math.PI / 2); eyes(0.15, 0.97, 1.16);
+      pair(s => cone(0.12, 0.22, P, s * 0.2, 1.2, 0.85));
+      add(new THREE.TorusGeometry(0.08, 0.025, 6, 12), P, 0, 0.85, -0.72);
+      break;
+    }
+    case 'dog': {
+      const B = 0xb07a45;
+      box(0.6, 0.55, 1.2, B, 0, 0.78, 0); legs4(0.6, 1.2, 0.5, 0.16, B);
+      box(0.5, 0.48, 0.5, B, 0, 1.2, 0.75); box(0.28, 0.24, 0.32, 0xe0b080, 0, 1.08, 1.1); ball(0.06, BLK, 0, 1.16, 1.27); eyes(0.12, 1.3, 1.0);
+      pair(s => box(0.1, 0.35, 0.22, 0x7a4a25, s * 0.29, 1.15, 0.72));
+      cyl(0.05, 0.05, 0.5, B, 0, 1.15, -0.7, -0.6);
+      break;
+    }
+    case 'cow': {
+      const C = cowMat(), PK = 0xffb3c1;
+      box(1.0, 0.85, 1.8, C, 0, 1.22, 0); legs4(1.0, 1.8, 0.8, 0.22, C);
+      box(0.6, 0.6, 0.65, C, 0, 1.7, 1.15); box(0.62, 0.3, 0.3, PK, 0, 1.5, 1.5); eyes(0.2, 1.8, 1.48);
+      pair(s => { cone(0.06, 0.3, 0xf5ecd0, s * 0.26, 2.1, 1.1); box(0.25, 0.1, 0.15, C, s * 0.38, 1.85, 1.05); });
+      ball(0.18, PK, 0, 0.75, -0.3); cyl(0.03, 0.03, 0.9, BLK, 0, 1.2, -0.95, 0.2);
+      break;
+    }
+    case 'duck': {
+      const O = 0xff9a1a;
+      ball(0.45, W, 0, 0.6, 0, 1, 0.8, 1.3); cyl(0.15, 0.18, 0.12, W, 0, 0.85, 0.4); ball(0.24, 0x1f7a3a, 0, 1.05, 0.45);
+      box(0.22, 0.07, 0.32, O, 0, 0.98, 0.75); eyes(0.13, 1.1, 0.62);
+      cone(0.15, 0.3, W, 0, 0.75, -0.6, -1.0);
+      pair(s => leg(s * 0.15, 0.3, 0.05, 0.3, 0.07, O));
+      break;
+    }
+    case 'monkey': {
+      const Br = 0x7a4a25, Bg = 0xe8c39a;
+      ball(0.4, Br, 0, 0.9, 0, 1, 1.15, 0.85); ball(0.3, Br, 0, 1.55, 0.05); ball(0.22, Bg, 0, 1.5, 0.2, 1, 0.85, 0.7);
+      pair(s => ball(0.12, Bg, s * 0.32, 1.6, 0)); eyes(0.09, 1.58, 0.34);
+      pair(s => leg(s * 0.42, 1.2, 0.05, 0.65, 0.13, Br)); pair(s => leg(s * 0.18, 0.5, 0, 0.5, 0.15, Br));
+      const t = add(new THREE.TorusGeometry(0.3, 0.05, 6, 14, Math.PI * 1.4), Br, 0, 0.7, -0.45); t.rotation.y = Math.PI / 2;
+      break;
+    }
+    case 'wolf': {
+      const Gy = 0x8a8f99;
+      box(0.6, 0.6, 1.4, Gy, 0, 0.95, 0); legs4(0.6, 1.4, 0.65, 0.17, Gy);
+      box(0.5, 0.45, 0.5, Gy, 0, 1.35, 0.85); box(0.26, 0.22, 0.42, 0xc8ccd4, 0, 1.25, 1.25); ball(0.06, BLK, 0, 1.33, 1.46); eyes(0.13, 1.45, 1.1, 0xffd23f);
+      pair(s => cone(0.1, 0.25, Gy, s * 0.17, 1.7, 0.8)); cone(0.16, 0.85, Gy, 0, 0.95, -0.95, -2.1);
+      break;
+    }
+    case 'tiger': {
+      const F = stripeMat(), O = 0xf08a1c;
+      box(0.7, 0.65, 1.5, F, 0, 0.95, 0); legs4(0.7, 1.5, 0.62, 0.2, O);
+      box(0.6, 0.55, 0.55, F, 0, 1.35, 0.95); box(0.36, 0.24, 0.24, W, 0, 1.2, 1.3); ball(0.06, BLK, 0, 1.3, 1.43); eyes(0.15, 1.45, 1.23, 0xc8ff3a, 0.06);
+      pair(s => cone(0.11, 0.2, O, s * 0.2, 1.7, 0.9)); cyl(0.05, 0.06, 0.9, F, 0, 1.15, -1.05, -0.9);
+      break;
+    }
+    case 'capybara': {
+      const C = 0x9a6a3e;
+      box(0.8, 0.7, 1.3, C, 0, 0.65, 0); legs4(0.8, 1.3, 0.3, 0.2, C);
+      box(0.5, 0.5, 0.65, C, 0, 0.85, 0.85); box(0.42, 0.3, 0.1, 0x5a3a20, 0, 0.8, 1.18); eyes(0.2, 0.98, 0.95);
+      pair(s => ball(0.07, 0x6a4a2a, s * 0.18, 1.12, 0.68));
+      break;
+    }
+    case 'lion': {
+      const T = 0xd9a54a, Mn = 0x8a4a1a;
+      box(0.7, 0.65, 1.5, T, 0, 0.95, 0); legs4(0.7, 1.5, 0.62, 0.2, T);
+      ball(0.55, Mn, 0, 1.4, 0.8, 1, 1, 0.65); box(0.48, 0.48, 0.45, T, 0, 1.38, 1.05); box(0.3, 0.2, 0.2, 0xf0d9a0, 0, 1.25, 1.33);
+      ball(0.05, BLK, 0, 1.33, 1.43); eyes(0.13, 1.47, 1.28);
+      pair(s => cone(0.09, 0.15, T, s * 0.2, 1.72, 0.95)); cyl(0.04, 0.04, 0.9, T, 0, 1.05, -1.1, -0.9); ball(0.1, Mn, 0, 0.75, -1.45);
+      break;
+    }
+    case 'tricera': {
+      const Gn = 0x7a8f5a, Bn = 0xf5ecd0;
+      box(1.2, 1.0, 2.0, Gn, 0, 1.2, 0); legs4(1.2, 2.0, 0.7, 0.35, Gn);
+      box(0.8, 0.7, 0.9, Gn, 0, 1.3, 1.4); cyl(0.85, 0.85, 0.12, 0x9aa86a, 0, 1.8, 1.0, Math.PI / 2 - 0.35);
+      pair(s => cone(0.08, 0.65, Bn, s * 0.25, 1.8, 1.75, 1.1)); cone(0.07, 0.3, Bn, 0, 1.35, 1.95, 1.2); eyes(0.3, 1.5, 1.85);
+      cone(0.35, 1.4, Gn, 0, 1.1, -1.6, -Math.PI / 2 - 0.2);
+      break;
+    }
+    case 'brachio': {
+      const Bl = 0x6f8fa8;
+      ball(1, Bl, 0, 2.3, 0, 0.9, 0.75, 1.4); legs4(1.2, 1.8, 1.8, 0.3, Bl);
+      cyl(0.22, 0.38, 3, Bl, 0, 3.6, 1.3, 0.4); box(0.4, 0.35, 0.65, Bl, 0, 5.0, 2.0); eyes(0.15, 5.08, 2.25);
+      cone(0.4, 2.6, Bl, 0, 2.1, -2.3, -Math.PI / 2 - 0.15);
+      break;
+    }
+    case 'anky': {
+      const A = 0x8a6a4a;
+      ball(0.7, A, 0, 1.5, 0, 1, 0.85, 1.4); cyl(0.2, 0.28, 0.6, A, 0, 2.0, 0.75, 0.6); ball(0.42, 0xc9a07a, 0, 2.35, 1.0, 1, 1.05, 1);
+      for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI * 2; cone(0.06, 0.18, 0xf5ecd0, Math.cos(a) * 0.4, 2.15, 1.0 + Math.sin(a) * 0.4); }
+      eyes(0.2, 2.3, 1.35);
+      pair(s => { leg(s * 0.35, 1.1, 0, 1.1, 0.28, A); box(0.12, 0.4, 0.12, A, s * 0.45, 1.5, 0.7); });
+      for (let k = 0; k < 5; k++) pair(s => cone(0.12, 0.35, 0x5a4a3a, s * 0.3, 2.05 - k * 0.05, 0.5 - k * 0.4));
+      cone(0.3, 1.6, A, 0, 1.4, -1.6, -Math.PI / 2 - 0.2);
+      break;
+    }
+    case 'ptera': {
+      const Pr = 0xb07050;
+      ball(0.35, Pr, 0, 1.2, 0, 0.8, 0.7, 1.4); ball(0.2, Pr, 0, 1.45, 0.55);
+      cone(0.08, 0.9, 0xe0b070, 0, 1.42, 1.05, Math.PI / 2); cone(0.06, 0.6, Pr, 0, 1.62, 0.25, -Math.PI / 2 - 0.6); eyes(0.12, 1.5, 0.65);
+      pair(s => wing(s, 1.25, 0, 1.8, 0.9, 0x9a5a40));
+      pair(s => leg(s * 0.1, 0.9, -0.2, 0.5, 0.06, Pr));
+      break;
+    }
+    case 'trex': {
+      const Gn = 0x3f8f3a;
+      ball(1, Gn, 0, 3.4, 0, 1.4, 1.6, 2.2); ball(1, 0x9ccf6a, 0, 3.1, 0.6, 1.1, 1.3, 1.6);
+      cyl(0.7, 0.9, 1.6, Gn, 0, 4.8, 1.6, 0.5); box(1.3, 1.1, 2.0, Gn, 0, 5.75, 2.6); box(1.15, 0.38, 1.8, Gn, 0, 5.05, 2.7);
+      for (let k = 0; k < 5; k++) cone(0.08, 0.25, W, -0.45 + k * 0.22, 5.15, 3.5, Math.PI);
+      eyes(0.55, 6.05, 2.9, 0xffd000, 0.15);
+      cone(1.0, 4.5, Gn, 0, 3.3, -3.8, -Math.PI / 2 - 0.15);
+      pair(s => { box(0.22, 0.7, 0.22, Gn, s * 0.9, 3.7, 1.8); leg(s * 0.95, 2.6, 0, 2.6, 0.8, Gn); });
+      for (let k = 0; k < 6; k++) cone(0.25, 0.7, 0x245c22, 0, 5.0 - k * 0.15, 0.9 - k * 0.7, -0.4);
+      break;
+    }
+    case 'dragon': {
+      const Dr = 0x8a1a2a, Gd = 0xffb020;
+      const eyeM = mat(0xffee00, { emissive: 0xffaa00, emissiveIntensity: 2 });
+      ball(0.8, mat(Dr, { emissive: 0x330008 }), 0, 1.6, 0, 1, 0.9, 1.5); ball(0.7, Gd, 0, 1.45, 0.3, 0.8, 0.7, 1.1);
+      legs4(1.1, 1.8, 1.1, 0.25, Dr);
+      cyl(0.25, 0.4, 1.2, Dr, 0, 2.3, 1.1, 0.6); box(0.6, 0.5, 0.9, Dr, 0, 2.75, 1.55); eyes(0.18, 2.88, 1.95, eyeM, 0.07);
+      pair(s => cone(0.08, 0.5, 0xf5ecd0, s * 0.2, 3.1, 1.3, -0.5));
+      pair(s => wing(s, 2.1, 0, 2.2, 1.4, 0x5a0a1a));
+      cone(0.35, 2.4, Dr, 0, 1.5, -2.2, -Math.PI / 2 - 0.15);
+      for (let k = 0; k < 5; k++) cone(0.1, 0.3, Gd, 0, 2.3 - k * 0.12, 0.5 - k * 0.45);
+      break;
+    }
+  }
+  // 높이 맞추기 & 발이 바닥에 닿게
+  const bb = new THREE.Box3().setFromObject(g);
+  const sc = targetH / (bb.max.y - bb.min.y);
+  g.scale.setScalar(sc); g.position.y = -bb.min.y * sc;
+  const outer = new THREE.Group(); outer.add(g);
+  return { g: outer, legs, wings, headY: targetH, flying: type === 'ptera' || type === 'dragon' };
+}
+
+// =====================================================================
+//  화면 방향: 휴대폰은 항상 가로 (세로로 들면 게임 전체를 90° 돌려서 보여 줌), 컴퓨터는 그대로
+// =====================================================================
+const IS_TOUCH = matchMedia('(pointer: coarse)').matches || navigator.maxTouchPoints > 0 || /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+const GAME_VER = '2026-10-29c';   // 타이틀 화면 아래에 표시 (최신 버전인지 확인용)
+let ROT = false, VW = innerWidth, VH = innerHeight;   // VW × VH = 게임 화면 크기 (항상 가로가 더 김)
+function layout() {
+  ROT = IS_TOUCH && innerHeight > innerWidth;
+  VW = ROT ? innerHeight : innerWidth; VH = ROT ? innerWidth : innerHeight;
+  const app = $('app');
+  app.style.width = VW + 'px'; app.style.height = VH + 'px';
+  app.style.transform = ROT ? `translateX(${innerWidth}px) rotate(90deg)` : '';
+  app.style.setProperty('--vw', VW / 100 + 'px'); app.style.setProperty('--vh', VH / 100 + 'px');
+  document.body.classList.toggle('short', VH < 500);
+  document.body.classList.toggle('narrow', VW < 600);
+}
+// 화면에서 손가락이 움직인 양 → 돌아간 게임 화면 기준 움직인 양
+const toApp = (dx, dy) => ROT ? [dy, -dx] : [dx, dy];
+layout();
+
+// =====================================================================
+//  렌더러 / 씬
+// =====================================================================
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(VW, VH);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+$('app').prepend(renderer.domElement);
+const cvs = renderer.domElement;
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(LEVELS[0].sky);
+scene.fog = new THREE.Fog(LEVELS[0].sky, 55, 210);
+const camera = new THREE.PerspectiveCamera(65, VW / VH, 0.1, 700);
+const hemi = new THREE.HemisphereLight(0xffffff, 0x445533, 0.8); scene.add(hemi);
+const sun = new THREE.DirectionalLight(0xffffff, 0.9);
+sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048);
+Object.assign(sun.shadow.camera, { left: -30, right: 30, top: 30, bottom: -30, near: 1, far: 160 });
+scene.add(sun); scene.add(sun.target);
+// 밤하늘 별
+const stars = (() => {
+  const n = 600, pos = new Float32Array(n * 3);
+  for (let i = 0; i < n; i++) {
+    const a = Math.random() * Math.PI * 2, b = Math.random() * Math.PI * 0.45, r = 400;
+    pos[i * 3] = Math.cos(a) * Math.cos(b) * r; pos[i * 3 + 1] = Math.sin(b) * r + 20; pos[i * 3 + 2] = Math.sin(a) * Math.cos(b) * r;
+  }
+  const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  const p = new THREE.Points(geo, new THREE.PointsMaterial({ color: 0xffffff, size: 1.6, sizeAttenuation: false, transparent: true, opacity: 0, fog: false }));
+  scene.add(p); return p;
+})();
+
+function onResize() {
+  layout();
+  camera.aspect = VW / VH; camera.updateProjectionMatrix();
+  renderer.setSize(VW, VH);
+}
+addEventListener('resize', onResize);
+addEventListener('orientationchange', () => setTimeout(onResize, 250));   // 일부 휴대폰은 돌린 뒤 크기가 늦게 바뀜
+
+// =====================================================================
+//  월드: [농장] ← 출발 → 1단계 오비 → 둥지 → 2단계 → 둥지 → 3단계 → 둥지
+// =====================================================================
+const world = new THREE.Group(); scene.add(world);
+let colliders = [], movers = [], hazards = [], nests = [], profile = [], embers = null;
+let mapEnd = 100, levelStarts = [], barrier = null, barrierC = null;
+const shopPos = new THREE.Vector3(-6, 0, -6.5);
+const sellPos = new THREE.Vector3(-6, 0, 6.5);
+
+function setBounds(c) { c.minX = c.cx - c.hx; c.maxX = c.cx + c.hx; c.minZ = c.cz - c.hz; c.maxZ = c.cz + c.hz; }
+function addCollider(cx, cz, hx, hz, minY, maxY, extra = {}) {
+  const c = Object.assign({ cx, cz, hx, hz, minY, maxY, solid: true, dx: 0, dz: 0 }, extra);
+  setBounds(c); colliders.push(c); return c;
+}
+function addPlatform(x, z, top, sx, sz, color, extra = {}) {
+  const me = mesh(new THREE.BoxGeometry(sx, 0.6, sz), mat(color, { roughness: 0.55 }));
+  me.position.set(x, top - 0.3, z); world.add(me);
+  const c = addCollider(x, z, sx / 2, sz / 2, top - 0.6, top, extra);
+  c.mesh = me;
+  profile.push({ x0: x - sx / 2, x1: x + sx / 2, top });
+  return c;
+}
+
+function buildWorld() {
+  const rng = rngFn(4242);
+  buildFarmScenery();
+
+  let prevEnd = 0, prevW = MAP_HW * 2, y = 0, l = 0;
+  LEVELS.forEach((L, li) => {
+    const cfg = L.d, sf = 1 + li * 0.25, spinSize = 4.25;
+    levelStarts.push(prevEnd);
+    const sign = textSprite([
+      { text: `${L.emoji} ${li + 1}단계`, font: 'bold 64px Malgun Gothic', color: '#fff', y: 80 },
+      { text: BIOMES[li], font: 'bold 52px Malgun Gothic', color: '#ffe14a', y: 170 },
+    ], 512, 256, 6);
+    sign.position.set(prevEnd + 1.5, y + 4.5, -6); world.add(sign);
+
+    for (let k = 1; k <= cfg.n; k++) {
+      let type = 'static', size = cfg.size;
+      const r = rng(); let acc = 0;
+      if (k > 1) {
+        if (r < (acc += cfg.mov)) type = 'move';
+        else if (r < (acc += cfg.dis)) type = 'dis';
+        else if (r < (acc += cfg.spin)) type = 'spin';
+        else if (r < (acc += cfg.spike)) type = 'spike';
+      }
+      if (type === 'spin' || type === 'spike') size = spinSize;
+      const gap = cfg.gap * (0.88 + rng() * 0.12);
+      const x = prevEnd + gap + size / 2;
+      // 대각선 거리가 점프 가능 범위(5.6)를 넘지 않게 옆 이동 제한
+      const maxLat = prevW / 2 + size / 2 + Math.sqrt(Math.max(0, 5.6 * 5.6 - gap * gap)) * 0.9;
+      const lim = MAP_HW - size / 2 - 0.4;
+      let nl = l + (rng() * 2 - 1) * cfg.wig;
+      nl = Math.max(l - maxLat, Math.min(l + maxLat, nl));
+      if (type === 'move') nl = Math.max(-2, Math.min(2, nl));
+      l = Math.max(-lim, Math.min(lim, nl));
+      y = Math.max(0, Math.min(10, y + cfg.rise * (rng() * 1.4 - 0.4)));
+
+      const color = type === 'move' ? new THREE.Color(L.color).offsetHSL(0, 0, 0.12).getHex() : L.color;
+      const c = addPlatform(x, l, y, size, size, color);
+      if (type === 'move') {
+        const A = Math.min(2.6, MAP_HW - size / 2 - 0.4 - Math.abs(l));
+        movers.push({ kind: 'move', c, bz: l, A, w: (1.1 + rng() * 0.9) * sf, ph: rng() * 6.28 });
+      } else if (type === 'dis') {
+        c.mesh.material.transparent = true; c.mesh.material.color.set(0xb8f0ff);
+        movers.push({ kind: 'dis', c, T: 3.0 / sf, ph: rng() * 3 });
+      } else if (type === 'spin') {
+        const gr = new THREE.Group(), len = size * 0.98;
+        const bar = mesh(new THREE.BoxGeometry(len, 0.35, 0.35), mat(0xff2a2a, { emissive: 0x550000 }));
+        const post = mesh(new THREE.CylinderGeometry(0.2, 0.2, 0.8, 8), mat(0x444444)); post.position.y = -0.3;
+        gr.add(bar, post); gr.position.set(x, y + 0.6, l); world.add(gr);
+        const sp = { kind: 'spin', g: gr, cx: x, cz: l, y0: y + 0.6, len, angle: rng() * 6, w: (2.0 + rng() * 1.0) * sf * (rng() < 0.5 ? 1 : -1) };
+        movers.push(sp); hazards.push(sp);
+      } else if (type === 'spike') {
+        const sk = mesh(new THREE.BoxGeometry(1.2, 1.1, 1.2), mat(0xff2a2a, { emissive: 0x660000 }));
+        sk.position.set(x, y + 0.55, l); world.add(sk);
+        hazards.push({ kind: 'spike', minX: x - 0.55, maxX: x + 0.55, minZ: l - 0.55, maxZ: l + 0.55, minY: y, maxY: y + 1.05 });
+      }
+      prevEnd = x + size / 2; prevW = size;
+    }
+
+    // 달걀 훔치는 둥지 (2배 크기): 달걀 5개 + 잠자는 보스
+    const NL = 24;
+    const nx = prevEnd + cfg.gap * 0.8 + NL / 2;
+    y = Math.max(0, Math.min(10, y + 0.3)); l = 0;
+    addPlatform(nx, 0, y, NL, MAP_HW * 2, L.nest);
+    // 보스는 둥지의 왼쪽(-z)에서 오른쪽(+z)을 보고 자고, 달걀 5개는 보스 앞에 곡선(호) 모양으로 놓임
+    const bossZ = -MAP_HW + 1.5 + Math.min(2, L.bossH * 0.25);
+    const R = 3 + L.bossH * 0.5;
+    const spots = [];
+    for (let i = 0; i < 5; i++) {
+      const a = (-50 + i * 25) * Math.PI / 180;
+      const p = new THREE.Vector3(nx + Math.sin(a) * R, y, bossZ + Math.cos(a) * R);
+      const ring = mesh(new THREE.TorusGeometry(0.45, 0.16, 8, 18), mat(0xc49a4a)); ring.rotation.x = Math.PI / 2;
+      ring.position.set(p.x, y + 0.1, p.z); world.add(ring);
+      spots.push(p);
+    }
+    const boss = makeAnimal(L.bossType, L.bossH);
+    const sleepPos = new THREE.Vector3(nx, y - L.sink, bossZ), sleepRot = 0;
+    boss.g.position.copy(sleepPos); boss.g.rotation.y = sleepRot;
+    world.add(boss.g);
+    const zzz = textSprite([{ text: 'Zzz', font: 'bold 90px Arial', color: '#bfe0ff', y: 64 }], 256, 128, Math.max(1.4, L.bossH * 0.5), false);
+    world.add(zzz);
+    const n = { lv: li, x: nx, top: y, eggs: [], spots, group: new THREE.Group(), boss, zzz, sleepPos, sleepRot };
+    world.add(n.group);
+    nests.push(n);
+    prevEnd = nx + NL / 2; prevW = MAP_HW * 2;
+  });
+  mapEnd = prevEnd;
+
+  // 직사각형 경계 (투명 벽)
+  // 오비 구간(x ≥ 0)은 좁게(±MAP_HW), 농장(x < 0)은 우리 5개가 들어가게 넓게(±FARM_HW)
+  const len = mapEnd, midX = mapEnd / 2;
+  const wallMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.06, side: THREE.DoubleSide, depthWrite: false });
+  [-1, 1].forEach(sd => {
+    const w = new THREE.Mesh(new THREE.PlaneGeometry(len, 50), wallMat); w.position.set(midX, 12, sd * MAP_HW); world.add(w);
+    addCollider(midX, sd * (MAP_HW + 0.5), len / 2, 0.5, -100, 100);
+    for (let x = 0; x <= mapEnd; x += 12) {
+      const p = mesh(new THREE.CylinderGeometry(0.15, 0.15, 50, 6), mat(0xffffff, { emissive: 0xffffff, emissiveIntensity: 0.2 }), false);
+      p.position.set(x, 12, sd * MAP_HW); world.add(p);
+    }
+    const fw = new THREE.Mesh(new THREE.PlaneGeometry(-FARM_X0, 50), wallMat); fw.position.set(FARM_X0 / 2, 12, sd * FARM_HW); world.add(fw);
+    addCollider(FARM_X0 / 2, sd * (FARM_HW + 0.5), -FARM_X0 / 2, 0.5, -100, 100);
+    // 농장 앞쪽 가장자리 (오비 입구 양옆 막기)
+    const sw = (FARM_HW - MAP_HW) / 2, sz = sd * (MAP_HW + sw);
+    const ew = new THREE.Mesh(new THREE.PlaneGeometry(sw * 2, 50), wallMat); ew.rotation.y = Math.PI / 2; ew.position.set(0, 12, sz); world.add(ew);
+    addCollider(0.5, sz, 0.5, sw, -100, 100);
+  });
+  addCollider(FARM_X0 - 0.5, 0, 0.5, FARM_HW, -100, 100);
+  addCollider(mapEnd + 0.5, 0, 0.5, MAP_HW, -100, 100);
+  [[FARM_X0, FARM_HW], [mapEnd, MAP_HW]].forEach(([x, hw]) => { const w = new THREE.Mesh(new THREE.PlaneGeometry(hw * 2, 50), wallMat); w.rotation.y = Math.PI / 2; w.position.set(x, 12, 0); world.add(w); });
+
+  // 밤에 생기는 방벽 (농장 → 오비 입장 막기)
+  barrier = new THREE.Mesh(new THREE.BoxGeometry(0.4, 14, MAP_HW * 2),
+    new THREE.MeshStandardMaterial({ color: 0x8a5cff, emissive: 0x6a3cff, emissiveIntensity: 1, transparent: true, opacity: 0.55 }));
+  barrier.position.set(0.2, 6, 0); barrier.visible = false; world.add(barrier);
+  barrierC = addCollider(0.2, 0, 0.2, MAP_HW, -5, 14, { solid: false });
+
+  profile.sort((a, b) => a.x0 - b.x0);
+  buildScenery(rng);
+}
+
+function buildFarmScenery() {
+  addPlatform(FARM_X0 / 2, 0, 0, -FARM_X0, FARM_HW * 2, 0x72c14f, { farm: true });
+  const dirt = mesh(new THREE.BoxGeometry(-FARM_X0, 6, FARM_HW * 2), mat(0x8a5a33), false); dirt.position.set(FARM_X0 / 2, -3.6, 0); world.add(dirt);
+  // 헛간
+  const barn = new THREE.Group();
+  const wall = mesh(new THREE.BoxGeometry(4, 4.5, 9), mat(0xc0392b)); wall.position.y = 2.25; barn.add(wall);
+  const roof = mesh(new THREE.ConeGeometry(5.6, 2.6, 4), mat(0x5b3a29)); roof.position.y = 5.8; roof.rotation.y = Math.PI / 4; roof.scale.set(0.6, 1, 1.25); barn.add(roof);
+  const door = mesh(new THREE.BoxGeometry(0.1, 2.6, 2.4), mat(0xf5e6c8)); door.position.set(2.05, 1.3, 0); barn.add(door);
+  barn.position.set(FARM_X0 + 2.5, 0, 0); world.add(barn);
+  addCollider(FARM_X0 + 2.5, 0, 2, 4.5, 0, 4.5);
+  const fs = textSprite([{ text: '🏡 내 농장', font: 'bold 80px Malgun Gothic', color: '#fff', y: 128 }], 512, 256, 6);
+  fs.position.set(FARM_X0 + 5, 8.5, 0); world.add(fs);
+  // 정사각형 울타리 우리 (앞쪽 가운데에 입구)
+  const wood = mat(0xd9b38c);
+  const fence = (ax, az, bx, bz) => {          // 축에 평행한 울타리 한 줄
+    const len = Math.hypot(bx - ax, bz - az), alongX = az === bz;
+    const n = Math.max(1, Math.round(len / 1.5));
+    for (let i = 0; i <= n; i++) {
+      const p = mesh(new THREE.BoxGeometry(0.2, 1.2, 0.2), wood);
+      p.position.set(ax + (bx - ax) * i / n, 0.6, az + (bz - az) * i / n); world.add(p);
+    }
+    [0.45, 0.95].forEach(h => {
+      const r = mesh(new THREE.BoxGeometry(alongX ? len : 0.1, 0.12, alongX ? 0.1 : len), wood);
+      r.position.set((ax + bx) / 2, h, (az + bz) / 2); world.add(r);
+    });
+    addCollider((ax + bx) / 2, (az + bz) / 2, alongX ? len / 2 : 0.12, alongX ? 0.12 : len / 2, 0, 1.2);
+  };
+  for (let k = 0; k < PEN_N; k++) {
+    const z0 = penZ(k);
+    const hay = mesh(new THREE.BoxGeometry(PEN.x1 - PEN.x0, 0.04, PEN.z * 2), mat(0xd9c27a), false);
+    hay.position.set((PEN.x0 + PEN.x1) / 2, 0.02, z0); world.add(hay);
+    fence(PEN.x0, z0 - PEN.z, PEN.x0, z0 + PEN.z);           // 뒤
+    fence(PEN.x0, z0 - PEN.z, PEN.x1, z0 - PEN.z);           // 왼쪽
+    fence(PEN.x0, z0 + PEN.z, PEN.x1, z0 + PEN.z);           // 오른쪽
+    fence(PEN.x1, z0 - PEN.z, PEN.x1, z0 - 2);               // 앞 (입구 양옆)
+    fence(PEN.x1, z0 + 2, PEN.x1, z0 + PEN.z);
+    // 우리 번호 깃발 (플레이어 색)
+    const flag = mesh(new THREE.BoxGeometry(0.1, 0.7, 1.1), mat(PEN_COLORS[k])); flag.position.set(PEN.x1 + 0.1, 1.75, z0 + 2.6); world.add(flag);
+    const pole = mesh(new THREE.CylinderGeometry(0.06, 0.06, 2.2, 6), wood); pole.position.set(PEN.x1, 1.1, z0 + 2.1); world.add(pole);
+    const ps = liveLabel(5); ps.position.set(PEN.x1 + 0.5, 3.2, z0); world.add(ps);
+    penSigns.push(ps);
+  }
+  drawPenSigns();
+  // 날개 상점
+  const shop = new THREE.Group();
+  const counter = mesh(new THREE.BoxGeometry(3, 1.1, 1.4), mat(0x8e5a2b)); counter.position.y = 0.55; shop.add(counter);
+  [[-1.4, -0.6], [1.4, -0.6], [-1.4, 0.6], [1.4, 0.6]].forEach(([x, z]) => { const p = mesh(new THREE.CylinderGeometry(0.07, 0.07, 2.8, 6), wood); p.position.set(x, 1.4, z); shop.add(p); });
+  const awn = mesh(new THREE.BoxGeometry(3.4, 0.2, 1.8), mat(0x5ab0ff)); awn.position.y = 2.85; shop.add(awn);
+  shop.position.copy(shopPos); world.add(shop);
+  addCollider(shopPos.x, shopPos.z, 1.5, 0.7, 0, 1.1);
+  const ss = textSprite([{ text: '🪽 날개 상점 (E)', font: 'bold 64px Malgun Gothic', color: '#ffe14a', y: 128 }], 512, 256, 4);
+  ss.position.set(shopPos.x, 4.3, shopPos.z); world.add(ss);
+  // 판매 상점 (날개 상점 반대편)
+  const sell = new THREE.Group();
+  const counter2 = mesh(new THREE.BoxGeometry(3, 1.1, 1.4), mat(0x8e5a2b)); counter2.position.y = 0.55; sell.add(counter2);
+  [[-1.4, -0.6], [1.4, -0.6], [-1.4, 0.6], [1.4, 0.6]].forEach(([x, z]) => { const p = mesh(new THREE.CylinderGeometry(0.07, 0.07, 2.8, 6), wood); p.position.set(x, 1.4, z); sell.add(p); });
+  const awn2 = mesh(new THREE.BoxGeometry(3.4, 0.2, 1.8), mat(0x3ccf4e)); awn2.position.y = 2.85; sell.add(awn2);
+  const coin = mesh(new THREE.CylinderGeometry(0.4, 0.4, 0.1, 20), mat(0xffd23f, { metalness: 0.8, roughness: 0.3, emissive: 0x553300 }));
+  coin.rotation.x = Math.PI / 2; coin.position.set(0, 1.5, 0); sell.add(coin);
+  sell.position.copy(sellPos); world.add(sell);
+  addCollider(sellPos.x, sellPos.z, 1.5, 0.7, 0, 1.1);
+  const ss2 = textSprite([{ text: '💰 판매 상점 (E)', font: 'bold 64px Malgun Gothic', color: '#9dff9d', y: 128 }], 512, 256, 4);
+  ss2.position.set(sellPos.x, 4.3, sellPos.z); world.add(ss2);
+}
+
+function buildScenery(rng) {
+  // 3단계(공룡 지역) 아래는 용암
+  const lx0 = levelStarts[2] - 10, lw = mapEnd - lx0 + 200;
+  const lava = new THREE.Mesh(new THREE.PlaneGeometry(lw, 500), new THREE.MeshStandardMaterial({ color: 0xff4400, emissive: 0xff3300, emissiveIntensity: 0.9, roughness: 1 }));
+  lava.rotation.x = -Math.PI / 2; lava.position.set(lx0 + lw / 2, -14, 0); world.add(lava);
+  for (let i = 0; i < 6; i++) {
+    const x = levelStarts[2] + rng() * (mapEnd - levelStarts[2]), z = (rng() < 0.5 ? -1 : 1) * (90 + rng() * 60);
+    const v = mesh(new THREE.ConeGeometry(25 + rng() * 15, 60 + rng() * 40, 12), mat(0x2b1d18, { flatShading: true }), false);
+    v.position.set(x, 15, z); world.add(v);
+    const tip = new THREE.Mesh(new THREE.SphereGeometry(6, 10, 8), new THREE.MeshBasicMaterial({ color: 0xff6a00 }));
+    tip.position.set(x, 15 + v.geometry.parameters.height / 2 - 3, z); world.add(tip);
+  }
+  const n = 400, pos = new Float32Array(n * 3);
+  for (let i = 0; i < n; i++) { pos[i * 3] = levelStarts[2] + rng() * (mapEnd - levelStarts[2]); pos[i * 3 + 1] = rng() * 40 - 12; pos[i * 3 + 2] = (rng() - 0.5) * 80; }
+  const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  embers = new THREE.Points(geo, new THREE.PointsMaterial({ color: 0xffaa33, size: 0.35, transparent: true, opacity: 0.85 }));
+  world.add(embers);
+  // 초원·정글: 구름 + 떠 있는 섬
+  const cm = mat(0xffffff, { roughness: 1 });
+  for (let i = 0; i < 40; i++) {
+    const x = FARM_X0 - 30 + rng() * (levelStarts[2] - FARM_X0 + 30), z = (rng() < 0.5 ? -1 : 1) * (25 + rng() * 120), yy = -40 + rng() * 70;
+    const g = new THREE.Group();
+    for (let k = 0; k < 4; k++) { const c = new THREE.Mesh(new THREE.SphereGeometry(3 + rng() * 3, 10, 8), cm); c.position.set(k * 3.5 - 5, rng() * 1.5, rng() * 2); g.add(c); }
+    g.position.set(x, yy, z); world.add(g);
+  }
+  for (let x = 10; x < levelStarts[2]; x += 35) {
+    const jungle = x >= levelStarts[1];
+    [-1, 1].forEach(sd => {
+      const z = sd * (22 + rng() * 10), yy = -6 + rng() * 6;
+      const isl = mesh(new THREE.ConeGeometry(5, 7, 8), mat(jungle ? 0x5d4128 : 0x8a5a33), false); isl.rotation.x = Math.PI; isl.position.set(x, yy - 3.5, z); world.add(isl);
+      const top = mesh(new THREE.CylinderGeometry(5, 5, 0.6, 8), mat(jungle ? 0x3f8a3a : 0x72c14f), false); top.position.set(x, yy, z); world.add(top);
+      if (!jungle) { const hay = mesh(new THREE.BoxGeometry(2.4, 1.6, 1.6), mat(0xe8c65a)); hay.position.set(x, yy + 1.1, z); world.add(hay); }
+      else {
+        const trunk = mesh(new THREE.CylinderGeometry(0.4, 0.5, 5, 8), mat(0x6b4a2b)); trunk.position.set(x, yy + 2.8, z); world.add(trunk);
+        const leaf = mesh(new THREE.SphereGeometry(2.3, 10, 8), mat(0x2f7d32)); leaf.position.set(x, yy + 6, z); world.add(leaf);
+      }
+    });
+  }
+}
+
+// 둥지의 달걀 5개를 확률에 따라 새로 스폰 (등급은 표시 안 함, 시크릿만 빛나는 아우라)
+function rollNest(n) {
+  n.group.clear(); n.eggs = [];
+  let secret = false;
+  // 같은 날(낮밤 주기)에는 다시 켜도 똑같은 달걀이 나오게 시드 고정
+  const rand = rngFn(lastCycle * 7919 + n.lv * 101 + 13); rand();
+  n.spots.forEach((sp, idx) => {
+    const g = rollGrade(n.lv, rand);
+    const pos = new THREE.Vector3(sp.x, sp.y + EGG_SCALE * 1.05, sp.z);
+    const m = makeEggMesh(n.lv, g); m.position.copy(pos); n.group.add(m);
+    const outline = new THREE.Mesh(EGG_GEO, OUTLINE_MAT); outline.scale.setScalar(1.14); outline.visible = false; m.add(outline);
+    const parts = [m];
+    let aura = null;
+    if (g === SECRET) {
+      secret = true;
+      aura = halo(0xff4dd2, 2.4); aura.position.copy(pos); n.group.add(aura); parts.push(aura);
+      const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.25, 80, 8, 1, true),
+        new THREE.MeshBasicMaterial({ color: 0xff4dd2, transparent: true, opacity: 0.25, blending: THREE.AdditiveBlending, depthWrite: false }));
+      beam.position.set(pos.x, pos.y + 40, pos.z); n.group.add(beam); parts.push(beam);
+    }
+    n.eggs.push({ idx, g, pos, mesh: m, outline, aura, parts, taken: false, ph: Math.random() * 6 });
+  });
+  return secret;
+}
+function respawnAllEggs() {
+  let msgs = [];
+  nests.forEach(n => { if (rollNest(n)) msgs.push(`🌟 ${BIOMES[n.lv]} 바이옴에서 ${eggLabel(n.lv, SECRET).replace('🐉 ', '')}가 떴어요!`); });
+  if (msgs.length) { $('secretBanner').textContent = msgs.join('  '); $('secretBanner').classList.remove('hidden'); secretTimer = 8; sfx('secret'); }
+}
+
+function updateMovers(dt, T) {
+  for (const m of movers) {
+    if (m.kind === 'move') {
+      const nz = m.bz + Math.sin(T * m.w + m.ph) * m.A, c = m.c;
+      c.dx = 0; c.dz = nz - c.cz; c.cz = nz; setBounds(c); c.mesh.position.z = nz;
+    } else if (m.kind === 'dis') {
+      const ph = ((T + m.ph) % m.T) / m.T, c = m.c;
+      c.solid = ph < 0.78;
+      c.mesh.material.opacity = ph < 0.5 ? 0.9 : ph < 0.78 ? (Math.sin(T * 35) > 0 ? 0.85 : 0.25) : 0.07;
+    } else if (m.kind === 'spin') {
+      m.angle += m.w * dt; m.g.rotation.y = m.angle;
+    }
+  }
+}
+// 보스가 오비 위를 따라 달릴 때의 높이 (빈틈에서는 점프)
+function groundAt(x) {
+  let prev = null;
+  for (const p of profile) {
+    if (x >= p.x0 && x <= p.x1) return p.top;
+    if (p.x1 < x) { if (!prev || p.x1 > prev.x1) prev = p; }
+    else if (p.x0 > x) {
+      if (!prev) return p.top;
+      const t = (x - prev.x1) / (p.x0 - prev.x1);
+      return prev.top + (p.top - prev.top) * t + Math.sin(t * Math.PI) * 2;
+    }
+  }
+  return prev ? prev.top : 0;
+}
+
+// =====================================================================
+//  농장: 부화기 & 동물
+// =====================================================================
+// 우리 5개: 가운데(내 우리)만 쓰고, 나머지 4개는 빈 우리
+const penGroups = [], penVis = [], penSigns = [];
+let farmVis = [], slotMarks = [];
+for (let k = 0; k < PEN_N; k++) { const g = new THREE.Group(); world.add(g); penGroups.push(g); penVis.push([]); }
+const slotPos = (i, k = myPen) => new THREE.Vector3(-13.8 - Math.floor(i / 4) * 2.9, 0, penZ(k) - 5.25 + (i % 4) * 3.5);   // 우리 안 5 × 4 칸
+const penSlots = k => k === myPen ? SAVE.slots : (penOwner(k) || {}).slots || [];
+// 빈 칸 표시 (내 우리만): 바닥 링 + 칸 번호
+const MARK_MAT = mat(0xfff3c0, { emissive: 0x665522, roughness: 0.5 }), MARK_ON = mat(0xffcc33, { emissive: 0xffaa00, emissiveIntensity: 0.9 });
+const markNoTex = [];
+function slotMark(i) {
+  const g = new THREE.Group();
+  const ring = mesh(new THREE.TorusGeometry(0.5, 0.07, 6, 24), MARK_MAT, false); ring.rotation.x = Math.PI / 2; ring.position.y = 0.06; g.add(ring);
+  const no = textSprite([{ text: String(i + 1), font: 'bold 80px Arial', color: '#fff8d0', y: 64 }], 128, 128, 0.7, false);
+  no.position.y = 0.45; g.add(no);
+  g.ring = ring; return g;
+}
+
+function rebuildPen(k) {
+  const grp = penGroups[k], slots = penSlots(k), own = k === myPen, vis = [];
+  grp.clear();
+  if (own) slotMarks = [];
+  for (let i = 0; i < SLOTS; i++) {
+    const p = slotPos(i, k);
+    const s = slots[i];
+    if (!s) {
+      vis.push(null);
+      if (own) { const m = slotMark(i); m.position.copy(p); grp.add(m); slotMarks[i] = m; }
+      continue;
+    }
+    if (!isHatched(s)) {
+      const inc = mesh(new THREE.CylinderGeometry(0.45, 0.5, 0.35, 16), mat(0xb0b0b0, { metalness: 0.6, roughness: 0.3 })); inc.position.set(p.x, 0.3, p.z); grp.add(inc);
+      const dome = new THREE.Mesh(new THREE.SphereGeometry(0.48, 16, 10, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0xcfefff, transparent: true, opacity: 0.3, roughness: 0.1 }));
+      dome.position.set(p.x, 0.47, p.z); grp.add(dome);
+      const egg = makeEggMesh(s.lv, s.g); egg.position.set(p.x, 0.47 + EGG_SCALE, p.z); grp.add(egg);
+      if (s.g === SECRET) { const h = halo(0xff4dd2, 2); h.position.copy(egg.position); grp.add(h); }
+      const label = liveLabel(); label.position.set(p.x, 1.7, p.z); grp.add(label);
+      label.draw(`⏳ 부화까지 ${minSec(growLeft(s) / (night ? NIGHT_MULT : 1))}`);
+      vis.push({ kind: 'egg', egg, label, s });
+    } else {
+      const a = animalOf(s.lv, s.g);
+      const baby = makeAnimal(a.type, a.h);
+      baby.g.position.copy(p); grp.add(baby.g);
+      let glow = null;
+      if (a.secret) { glow = halo(0xff4dd2, 5); grp.add(glow); }
+      const name = textSprite([{ text: a.name, font: 'bold 46px Malgun Gothic', color: a.secret ? '#ffb0f0' : '#fff', y: 64 }], 512, 128, 3.2, false);
+      grp.add(name);
+      const coin = textSprite([{ text: `+${fmt(a.inc * 3)} 💰`, font: 'bold 60px Malgun Gothic', color: '#ffd23f', y: 64 }], 384, 128, 2.4, false);
+      coin.visible = false; grp.add(coin);
+      vis.push({ kind: 'baby', baby, glow, name, coin, a, home: p, pos: p.clone(), target: p.clone(), face: Math.random() * 6, anim: 0, coinT: Math.random() * 3, wait: 0 });
+    }
+  }
+  penVis[k] = vis;
+  if (own) farmVis = vis;
+}
+// 내 우리가 바뀜 → 다시 그림
+function rebuildFarm() { rebuildPen(myPen); NET.send({ t: 'pen', slots: SAVE.slots }); }   // 바뀐 내 우리를 친구들에게도 알림
+function rebuildAllPens() { for (let k = 0; k < PEN_N; k++) rebuildPen(k); drawPenSigns(); }
+function drawPenSigns() {
+  penSigns.forEach((s, k) => {
+    const o = penOwner(k);
+    if (k === myPen) s.draw(`🐣 내 우리 (${NET.ready ? NET.name : '달걀 심는 곳'})`, '#ffe14a');
+    else s.draw(o ? `🐣 ${o.name}의 우리` : '빈 우리', o ? '#fff' : '#889');
+  });
+}
+let farmTick = 0;
+function updateFarm(dt) {
+  farmTick -= dt;
+  const check = farmTick <= 0; if (check) farmTick = 0.5;
+  for (let k = 0; k < PEN_N; k++) {
+  let rebuild = false;
+  penVis[k].forEach(v => {
+    if (!v) return;
+    if (v.kind === 'egg') {
+      v.egg.rotation.y += dt;
+      if (check) {
+        const left = growLeft(v.s);
+        if (left <= 0) {
+          const a = animalOf(v.s.lv, v.s.g);
+          if (k === myPen) { sfx('hatch'); toast(`🐣 ${a.name}이(가) 태어났다!\n초당 +${fmt(a.inc)} 💰`, 2.5); }
+          rebuild = true;
+        } else v.label.draw(`⏳ 부화까지 ${minSec(left / (night ? NIGHT_MULT : 1))}${night ? ' 🌙' : ''}`, night ? '#b8c8ff' : '#fff');
+      }
+    } else {
+      // 동물이 자기 자리 근처를 돌아다님
+      const d = Math.hypot(v.target.x - v.pos.x, v.target.z - v.pos.z);
+      let moving = false;
+      if (v.wait > 0) v.wait -= dt;
+      else if (d < 0.1) { v.target.set(v.home.x + (Math.random() - 0.5) * 2, 0, v.home.z + (Math.random() - 0.5) * 2); v.wait = Math.random() * 2; }
+      else {
+        const sp = Math.min(d, 1.0 * dt);
+        v.pos.x += (v.target.x - v.pos.x) / d * sp; v.pos.z += (v.target.z - v.pos.z) / d * sp;
+        v.face = Math.atan2(v.target.x - v.pos.x, v.target.z - v.pos.z); moving = true;
+      }
+      v.anim += dt * (moving ? 10 : 0);
+      v.baby.legs.forEach((lp, k) => { const ph = v.baby.legs.length === 4 ? [0, Math.PI, Math.PI, 0][k] : k * Math.PI; lp.rotation.x = moving ? Math.sin(v.anim + ph) * 0.6 : 0; });
+      v.baby.wings.forEach((w, k) => { w.rotation.z = (k ? -1 : 1) * Math.sin(T * 6) * 0.5; });
+      const fly = v.baby.flying ? 0.6 + Math.sin(T * 2) * 0.2 : (moving ? Math.abs(Math.sin(v.anim)) * 0.05 : 0);
+      v.baby.g.position.set(v.pos.x, fly, v.pos.z); v.baby.g.rotation.y = v.face;
+      if (v.glow) { v.glow.position.set(v.pos.x, v.a.h * 0.5 + fly, v.pos.z); v.glow.material.opacity = 0.7 + Math.sin(T * 3) * 0.3; }
+      v.name.position.set(v.pos.x, v.a.h + fly + 0.5, v.pos.z);
+      v.coinT += dt;
+      if (v.coinT > 3) { v.coinT = 0; v.coin.visible = true; v.coinLife = 1.2; }
+      if (v.coin.visible) {
+        v.coinLife -= dt;
+        v.coin.position.set(v.pos.x, v.a.h + fly + 1.0 + (1.2 - v.coinLife) * 1.5, v.pos.z);
+        v.coin.material.opacity = Math.min(1, v.coinLife * 2);
+        if (v.coinLife <= 0) v.coin.visible = false;
+      }
+    }
+  });
+  if (rebuild) { if (k === myPen) rebuildFarm(); else rebuildPen(k); }
+  }
+}
+
+// =====================================================================
+//  플레이어 (회색 네모 사람, 키 1.7)
+// =====================================================================
+const HW = 0.35, PH = 1.7, G = 28, RUN = 8, JUMP = 12;
+const farmSpawn = () => new THREE.Vector3(-9, 0, penZ(myPen));   // 내 우리 앞에서 시작
+const P = { pos: farmSpawn(), vel: new THREE.Vector3(), onGround: false, ground: null, coyote: 0, jumpBuf: 0,
+  face: Math.PI / 2, anim: 0, held: null, invuln: 0, pick: null, flying: 0, flyMax: 1, canFly: true, hp: 100, hurtT: 0 };
+const MAX_HP = 100;
+
+// 네모 사람 모델. 몸 색 = 우리 색
+function makePerson(color) {
+  const g = new THREE.Group();
+  const c = new THREE.Color(color);
+  const gray = mat(c.getHex()), light = mat(c.clone().offsetHSL(0, 0, 0.1).getHex()), dark = mat(c.clone().offsetHSL(0, 0, -0.15).getHex()), blk = mat(0x222222);
+  const body = mesh(new THREE.BoxGeometry(0.7, 0.8, 0.4), gray); body.position.y = 1.0; g.add(body);
+  const head = mesh(new THREE.BoxGeometry(0.5, 0.5, 0.5), light); head.position.y = 1.67; g.add(head);
+  [-0.11, 0.11].forEach(x => { const e = mesh(new THREE.BoxGeometry(0.08, 0.08, 0.02), blk); e.position.set(x, 1.72, 0.26); g.add(e); });
+  const legs = [], arms = [];
+  [-0.17, 0.17].forEach(x => {
+    const lp = new THREE.Group(); lp.position.set(x, 0.6, 0);
+    const leg = mesh(new THREE.BoxGeometry(0.3, 0.6, 0.3), dark); leg.position.y = -0.3; lp.add(leg); g.add(lp); legs.push(lp);
+    const ap = new THREE.Group(); ap.position.set(x * 2.6, 1.35, 0);
+    const arm = mesh(new THREE.BoxGeometry(0.2, 0.6, 0.2), gray); arm.position.y = -0.3; ap.add(arm); g.add(ap); arms.push(ap);
+  });
+  const holder = new THREE.Group(); holder.position.set(0, 2.25, 0); g.add(holder);
+  // 날개 (비행 중에만 보임)
+  const wingG = new THREE.Group(); wingG.position.set(0, 1.25, -0.24); wingG.visible = false; g.add(wingG);
+  const wingMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.35, metalness: 0.4, side: THREE.DoubleSide });
+  const wl = [];
+  [-1, 1].forEach(s => {
+    const p = new THREE.Group();
+    const w = mesh(new THREE.BoxGeometry(1.0, 0.04, 0.5), wingMat); w.position.x = s * 0.5; w.rotation.y = s * 0.3; p.add(w);
+    const tip = mesh(new THREE.BoxGeometry(0.5, 0.04, 0.35), wingMat); tip.position.set(s * 1.05, 0.1, -0.15); tip.rotation.z = s * 0.3; p.add(tip);
+    wingG.add(p); wl.push(p);
+  });
+  scene.add(g);
+  return { g, legs, arms, holder, wingG, wingMat, wl, body: [gray, light, dark] };
+}
+const playerModel = makePerson(PEN_COLORS[myPen]);
+const curWing = () => WINGS.find(w => w.id === SAVE.equip && SAVE.wings.includes(w.id));
+// 날개는 게임 시간 기준 하루(낮+밤 1번)에 3번까지
+const FLY_PER_DAY = 3;
+function flyLeft() {
+  const ci = cycleIndex(Date.now());
+  if (SAVE.flyDay !== ci) { SAVE.flyDay = ci; SAVE.flyUses = 0; }
+  return FLY_PER_DAY - SAVE.flyUses;
+}
+function startFly() {
+  const w = curWing(); if (!w || flyLeft() <= 0) return;
+  SAVE.flyUses++;
+  P.flying = w.dur; P.flyMax = w.dur; P.canFly = false; P.vel.y = 0;
+  playerModel.wingMat.color.set(w.color); playerModel.wingG.visible = true; sfx('fly');
+}
+function stopFly() { if (!(P.flying > 0)) return; P.flying = 0; playerModel.wingG.visible = false; }
+// Shift+Space 또는 오른쪽 🪽 버튼: 땅에서는 점프 후 바로 날고, 공중에서는 그 자리에서 날기, 나는 중이면 내리기
+let flyQueue = 0;
+function tryFly() {
+  if (state !== 'play') return;
+  if (P.flying > 0) { stopFly(); return; }
+  if (!curWing()) { toast('🪽 날개가 없어요\n상점에서 날개를 사 보세요', 1.6); return; }
+  if (P.held || P.pick) { toast('🥚 달걀을 들고 있으면 날 수 없어요', 1.2); return; }
+  if (flyLeft() <= 0) { toast('🪽 오늘은 날개를 3번 다 썼어요\n아침이 되면 다시 충전돼요', 2); return; }
+  if (P.coyote > 0) { P.jumpBuf = 0.15; flyQueue = 0.22; }   // 땅 위 → 점프해서 조금 뜬 뒤 날기
+  else if (P.canFly) startFly();
+}
+
+// =====================================================================
+//  보스 추격
+// =====================================================================
+let B = null; // 깨어난 보스
+function wakeBoss(n) {
+  const L = LEVELS[n.lv];
+  B = { n, L, model: n.boss, x: n.sleepPos.x, y: n.top, z: n.sleepPos.z, face: n.sleepRot,
+    state: 'waking', t: 0, pounceT: 0, pounceCD: 2, anim: 0, speedNow: 0 };
+  n.zzz.visible = false;
+  B.icon = textSprite([{ text: '!', font: 'bold 110px Arial', color: '#ff3030', y: 64 }], 128, 128, Math.max(1, L.bossH * 0.35), false); world.add(B.icon);
+  sfx('roar'); shake = 0.6;
+}
+function sleepBoss() {
+  if (!B) return;
+  const n = B.n, m = n.boss;
+  m.g.position.copy(n.sleepPos); m.g.rotation.y = n.sleepRot;
+  m.legs.forEach(l => l.rotation.x = 0);
+  n.zzz.visible = true; world.remove(B.icon); B = null;
+}
+function updateBoss(dt) {
+  if (!B) return;
+  const L = B.L, m = B.model;
+  // 방벽 자리(농장 입구)에 도착하면 쫓아오던 보스는 원래 자리로 돌아감
+  if (P.pos.x <= barrierC.cx) {
+    sleepBoss();
+    toast(`${L.emoji} ${L.boss}가 포기하고 둥지로 돌아갔어요!\n우리에 달걀을 넣어요`, 2.2);
+    return;
+  }
+  if (B.state === 'waking') {
+    B.t += dt;
+    const k = Math.min(1, B.t / 1.8);
+    m.g.position.y = B.y - L.sink * (1 - k) + (k < 1 ? Math.abs(Math.sin(B.t * 20)) * 0.1 : 0);
+    const want = Math.atan2(P.pos.x - B.x, P.pos.z - B.z);
+    B.face += Math.atan2(Math.sin(want - B.face), Math.cos(want - B.face)) * Math.min(1, dt * 4);
+    m.g.rotation.y = B.face;
+    if (B.t >= 1.8) { B.state = 'chase'; toast(`${L.emoji} ${L.boss}가 쫓아온다!\n농장까지 도망쳐!`, 2.5); }
+  } else {
+    let speed = L.speed;
+    B.pounceCD -= dt;
+    const dist = Math.hypot(P.pos.x - B.x, P.pos.z - B.z);
+    if (B.n.lv === 1 && B.pounceCD <= 0 && dist < 9) { B.pounceT = 0.55; B.pounceCD = 3; toast('🐯 덮친다!', 0.8); }
+    if (B.pounceT > 0) { B.pounceT -= dt; speed *= 2.2; }
+    const dx = P.pos.x - B.x;
+    B.x += Math.sign(dx) * Math.min(Math.abs(dx), speed * dt);
+    B.x = Math.max(1, B.x); // 보스는 농장 안으로는 못 들어옴
+    const tz = Math.max(-MAP_HW + 1, Math.min(MAP_HW - 1, P.pos.z));
+    B.z += (tz - B.z) * Math.min(1, dt * 2.5);
+    B.y = groundAt(B.x);
+    B.speedNow = speed;
+    const want = Math.atan2(P.pos.x - B.x, P.pos.z - B.z);
+    B.face += Math.atan2(Math.sin(want - B.face), Math.cos(want - B.face)) * Math.min(1, dt * 6);
+    let hop = 0;
+    if (B.n.lv === 1 && B.pounceT > 0) hop = Math.sin((1 - B.pounceT / 0.55) * Math.PI) * 1.5;
+    if (B.n.lv === 0) hop = Math.abs(Math.sin(T * 12)) * 0.15;
+    m.g.position.set(B.x, B.y + hop, B.z); m.g.rotation.y = B.face;
+    if (B.n.lv === 2) shake = Math.max(shake, Math.max(0, 1 - dist / 30) * 0.35 * Math.abs(Math.sin(B.anim)));
+
+    const dy = P.pos.y - B.y;
+    if (P.invuln <= 0 && dist < L.catchR + HW && dy > -1.5 && dy < L.bossH) return caught();
+  }
+  B.anim += dt * (B.speedNow * (B.n.lv === 2 ? 1.0 : 2.2) + 0.5);
+  const amp = B.speedNow > 0.2 ? 0.7 : 0;
+  m.legs.forEach((lp, i) => { const ph = m.legs.length === 4 ? [0, Math.PI, Math.PI, 0][i] : i * Math.PI; lp.rotation.x = Math.sin(B.anim + ph) * amp; });
+  B.icon.position.set(m.g.position.x, m.g.position.y + L.bossH + 0.6 + Math.sin(T * 6) * 0.15, m.g.position.z);
+}
+function animateSleepers(T) {
+  for (const n of nests) {
+    if (B && B.n === n) continue;
+    n.boss.g.scale.set(1, 1 + Math.sin(T * 1.6 + n.lv) * 0.04, 1);
+    const h = LEVELS[n.lv].bossH;
+    n.zzz.position.set(n.sleepPos.x, n.top + h - LEVELS[n.lv].sink + 0.4 + h * 0.15 + Math.sin(T * 1.6 + n.lv) * 0.2, n.sleepPos.z);
+  }
+}
+
+// =====================================================================
+//  입력 / 카메라
+// =====================================================================
+const keys = {};
+addEventListener('keydown', e => {
+  if (e.target && e.target.tagName === 'INPUT') return;   // 이름 입력 중
+  keys[e.code] = true;
+  if (e.code === 'Space') {
+    e.preventDefault(); if (e.repeat) return;
+    if (state === 'play' && e.shiftKey) tryFly();                                           // Shift + Space → 날기
+    else jumpPress();                                                                       // 점프 (비행 중이면 날개 사라지며 중단)
+  }
+  if (state === 'play' && /^Digit[0-9]$/.test(e.code) && !e.repeat) { const n = +e.code[5]; if (n === 0) openInv(); else selHot(n - 1); return; }
+  if (e.code === 'KeyM' && !e.repeat) { if (state === 'play') openInv(); else if (state === 'inv') resume(); return; }
+  if (e.code === 'Escape' && (state === 'inv' || state === 'shop')) { resume(); return; }
+  if (state !== 'play') return;
+  if (e.code === 'KeyE' && !e.repeat) actionE();
+  if (e.code === 'KeyR') dropEgg();
+});
+// E키 / ✋ 버튼: 상점 열기, 우리에서 심기·들기
+function actionE() {
+  if (state !== 'play') return;
+  if (nearShop()) openShop();
+  else if (nearSellShop()) openSell();
+  else penAction();
+}
+// Space / 점프 버튼
+function jumpPress() {
+  if (state !== 'play') return;
+  if (P.flying > 0) stopFly();
+  else P.jumpBuf = 0.15;
+}
+addEventListener('keyup', e => { keys[e.code] = false; });
+let camYaw = -Math.PI / 2, camPitch = 0.38, camDist = 9, locked = false, dragging = false, shake = 0;
+const camTarget = new THREE.Vector3(-2, 1.6, 0);
+function lock() { try { const p = cvs.requestPointerLock(); if (p && p.catch) p.catch(() => {}); } catch (e) {} }
+let mouseHeld = false, touchHeld = false;   // 달걀 들기는 3초 동안 꾹 누르고 있어야 함 (touchHeld = ✋ 버튼 꾹)
+cvs.addEventListener('mousedown', () => { dragging = true; mouseHeld = true; if (state === 'play' && !locked) lock(); });
+addEventListener('mouseup', () => { dragging = false; mouseHeld = false; });
+
+// ---------- 모바일 터치 조작 ----------
+// 왼쪽 조이스틱 = 이동, 화면 드래그 = 카메라 회전, 두 손가락 = 줌, ✋ = E (꾹 누르면 달걀 들기)
+const joy = { id: null, x: 0, y: 0, cx: 0, cy: 0 };     // x: 오른쪽 +, y: 앞 +
+const camPts = new Map();                               // 화면을 드래그 중인 손가락들
+let pinchD = 0;
+function enableTouch() { document.body.classList.add('touch'); $('touchUI').classList.remove('hidden'); }
+if (IS_TOUCH) enableTouch();
+addEventListener('pointerdown', e => { if (e.pointerType === 'touch') enableTouch(); });
+
+const capture = (el, e) => { try { el.setPointerCapture(e.pointerId); } catch (err) {} };
+const joyEl = $('joy'), joyKnob = $('joyKnob'), JOY_R = 50;
+function moveJoy(e) {
+  let [dx, dy] = toApp(e.clientX - joy.cx, e.clientY - joy.cy);
+  const d = Math.hypot(dx, dy); if (d > JOY_R) { dx *= JOY_R / d; dy *= JOY_R / d; }
+  joy.x = dx / JOY_R; joy.y = -dy / JOY_R;
+  joyKnob.style.transform = `translate(${dx}px, ${dy}px)`;
+}
+function endJoy() { joy.id = null; joy.x = joy.y = 0; joyKnob.style.transform = ''; }
+joyEl.addEventListener('pointerdown', e => {
+  e.preventDefault(); capture(joyEl, e);
+  const r = joyEl.getBoundingClientRect(); joy.id = e.pointerId; joy.cx = r.left + r.width / 2; joy.cy = r.top + r.height / 2; moveJoy(e);
+});
+joyEl.addEventListener('pointermove', e => { if (e.pointerId === joy.id) moveJoy(e); });
+['pointerup', 'pointercancel', 'lostpointercapture'].forEach(t => joyEl.addEventListener(t, e => { if (e.pointerId === joy.id) endJoy(); }));
+
+cvs.addEventListener('pointerdown', e => {
+  if (e.pointerType !== 'touch') return;
+  e.preventDefault(); camPts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (camPts.size === 2) { const [a, b] = [...camPts.values()]; pinchD = Math.hypot(a.x - b.x, a.y - b.y); }
+});
+cvs.addEventListener('pointermove', e => {
+  const p = camPts.get(e.pointerId); if (!p) return;
+  if (camPts.size === 1 && state === 'play') {
+    const [dx, dy] = toApp(e.clientX - p.x, e.clientY - p.y);
+    camYaw -= dx * 0.006;
+    camPitch = Math.max(-0.15, Math.min(1.25, camPitch + dy * 0.004));
+  }
+  p.x = e.clientX; p.y = e.clientY;
+  if (camPts.size === 2) {
+    const [a, b] = [...camPts.values()], d = Math.hypot(a.x - b.x, a.y - b.y);
+    camDist = Math.max(4, Math.min(18, camDist - (d - pinchD) * 0.03)); pinchD = d;
+  }
+});
+['pointerup', 'pointercancel'].forEach(t => cvs.addEventListener(t, e => camPts.delete(e.pointerId)));
+
+// 버튼: 누르는 순간 바로 반응 (✋는 누르고 있는 동안 touchHeld)
+function touchBtn(id, down, up) {
+  const el = $(id);
+  el.addEventListener('pointerdown', e => { e.preventDefault(); capture(el, e); el.classList.add('on'); down(); });
+  ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(t => el.addEventListener(t, () => { el.classList.remove('on'); if (up) up(); }));
+}
+touchBtn('tAct', () => { touchHeld = true; actionE(); }, () => { touchHeld = false; });
+touchBtn('tJump', jumpPress);
+touchBtn('tPause', () => { if (state === 'play') pauseGame(); });
+addEventListener('mousemove', e => {
+  if (state !== 'play') return;
+  if (locked || dragging) {
+    camYaw -= e.movementX * 0.0028;
+    camPitch = Math.max(-0.15, Math.min(1.25, camPitch + e.movementY * 0.0022));
+  }
+});
+addEventListener('wheel', e => { camDist = Math.max(4, Math.min(18, camDist + e.deltaY * 0.01)); });
+document.addEventListener('pointerlockchange', () => {
+  const was = locked; locked = document.pointerLockElement === cvs;
+  if (was && !locked && state === 'play') pauseGame();
+});
+function unlock() { if (document.pointerLockElement) document.exitPointerLock(); }
+
+const skyCol = new THREE.Color(), nightCol = new THREE.Color(NIGHT_SKY);
+let nightK = 0;
+function updateCamera(dt) {
+  const tgt = new THREE.Vector3(P.pos.x, P.pos.y + 1.4, P.pos.z);
+  camTarget.lerp(tgt, Math.min(1, dt * 12));
+  const off = new THREE.Vector3(Math.sin(camYaw) * Math.cos(camPitch), Math.sin(camPitch), Math.cos(camYaw) * Math.cos(camPitch)).multiplyScalar(camDist);
+  camera.position.copy(camTarget).add(off);
+  if (shake > 0) { camera.position.x += (Math.random() - 0.5) * shake; camera.position.y += (Math.random() - 0.5) * shake; shake = Math.max(0, shake - dt * 2); }
+  camera.lookAt(camTarget);
+  sun.position.set(P.pos.x + 20, P.pos.y + 50, P.pos.z + 25); sun.target.position.copy(P.pos);
+  // 단계별 하늘색 + 밤
+  nightK += ((night ? 1 : 0) - nightK) * Math.min(1, dt * 2);
+  const zone = P.pos.x >= levelStarts[2] ? 2 : P.pos.x >= levelStarts[1] ? 1 : 0;
+  skyCol.set(LEVELS[zone].sky).lerp(nightCol, nightK);
+  scene.background.lerp(skyCol, Math.min(1, dt * 2)); scene.fog.color.copy(scene.background);
+  hemi.intensity = 0.8 - nightK * 0.45; sun.intensity = 0.9 - nightK * 0.7;
+  stars.material.opacity = nightK; stars.position.copy(camera.position);
+}
+
+// =====================================================================
+//  플레이어 물리
+// =====================================================================
+function overlapP(c) {
+  return P.pos.x + HW > c.minX && P.pos.x - HW < c.maxX && P.pos.z + HW > c.minZ && P.pos.z - HW < c.maxZ &&
+         P.pos.y < c.maxY && P.pos.y + PH > c.minY;
+}
+function resolveH(axis) {
+  for (const c of colliders) {
+    if (!c.solid || !overlapP(c)) continue;
+    if (c.maxY - P.pos.y <= 0.3) { P.pos.y = c.maxY; continue; } // 작은 턱은 올라감
+    if (axis === 'x') P.pos.x = P.pos.x < c.cx ? c.minX - HW - 0.001 : c.maxX + HW + 0.001;
+    else P.pos.z = P.pos.z < c.cz ? c.minZ - HW - 0.001 : c.maxZ + HW + 0.001;
+  }
+}
+function nearEgg() {
+  if (P.held) return null;
+  let best = null, bd = 1.6;
+  const consider = (n, e) => {
+    if (e.taken) return;
+    const d = Math.hypot(P.pos.x - e.pos.x, P.pos.z - e.pos.z);
+    if (d < bd && Math.abs(P.pos.y - (e.pos.y - EGG_SCALE)) < 1) { bd = d; best = { n, e }; }
+  };
+  for (const n of nests) for (const e of n.eggs) consider(n, e);
+  for (const ge of groundEggs) consider(ge.n, ge);
+  return best;
+}
+const inPen = () => P.pos.x > PEN.x0 && P.pos.x < PEN.x1 && Math.abs(P.pos.z - penZ(myPen)) < PEN.z && P.pos.y < 1.5;
+const inOtherPen = () => P.pos.x > PEN.x0 && P.pos.x < PEN.x1 && P.pos.y < 1.5 && Math.abs(P.pos.z) < FARM_HW && !inPen() &&
+  Math.abs(P.pos.z - penZ(Math.round(P.pos.z / PEN_STEP) + 2)) < PEN.z;
+// 내 우리 안에서 가장 가까운 빈 칸 (여기에 달걀을 심음)
+function nearEmptySlot() {
+  if (!inPen()) return null;
+  let best = null, bd = 1.3;
+  for (let i = 0; i < SLOTS; i++) {
+    if (SAVE.slots[i]) continue;
+    const p = slotPos(i), d = Math.hypot(P.pos.x - p.x, P.pos.z - p.z);
+    if (d < bd) { bd = d; best = { i, d }; }
+  }
+  return best;
+}
+const penFull = () => { for (let i = 0; i < SLOTS; i++) if (!SAVE.slots[i]) return false; return true; };
+let markOn = -1;
+function highlightSlot(i) {
+  if (markOn === i) return;
+  if (slotMarks[markOn]) slotMarks[markOn].ring.material = MARK_MAT;
+  markOn = i;
+  if (slotMarks[i]) slotMarks[i].ring.material = MARK_ON;
+}
+// 달걀을 안 들었을 때 E키: 빈 칸(핫바 아이템 놓기) / 펫·알 들기 중 더 가까운 쪽
+function penChoice() {
+  if (P.held) return null;
+  const es = nearEmptySlot(), pi = nearPenItem(), hot = SAVE.inv[hotSel];
+  const pp = pi && (pi.v.kind === 'baby' ? pi.v.pos : pi.v.egg.position);
+  const pd = pi ? Math.hypot(P.pos.x - pp.x, P.pos.z - pp.z) : 99;
+  if (es && hot && es.d < pd) return { place: es.i };
+  if (pi) return { pick: pi };
+  return null;
+}
+function penAction() {
+  if (P.held) {
+    if (!inPen()) return;
+    const es = nearEmptySlot();
+    if (es) depositEgg(es.i);
+    else if (penFull()) depositEgg(-1);
+    return;
+  }
+  const c = penChoice();
+  if (c && c.place !== undefined) placeInvAt(hotSel, c.place);
+  else if (c) pickPenItem(c.pick);
+}
+const nearSellShop = () => Math.hypot(P.pos.x - sellPos.x, P.pos.z - (sellPos.z - 1.3)) < 2.2 && P.pos.y < 1;
+// 우리 안에서 가까운 펫/부화 중인 알
+function nearPenItem() {
+  if (!inPen() || P.held) return null;
+  let best = null, bd = 1.5;
+  farmVis.forEach((v, i) => {
+    if (!v) return;
+    const p = v.kind === 'baby' ? v.pos : v.egg.position;
+    const d = Math.hypot(P.pos.x - p.x, P.pos.z - p.z);
+    if (d < bd) { bd = d; best = { i, v }; }
+  });
+  return best;
+}
+const nearShop = () => Math.hypot(P.pos.x - shopPos.x, P.pos.z - (shopPos.z + 1.3)) < 2.2 && P.pos.y < 1;
+const zoneAt = x => x < 0 ? -1 : x >= levelStarts[2] ? 2 : x >= levelStarts[1] ? 1 : 0;
+let outlined = null;
+
+// 바닥에 내려놓은 달걀 (다른 단계에서 내려놓으면 그 자리에 남음, 밤이 되면 사라짐)
+const groundGroup = new THREE.Group(); world.add(groundGroup);
+let groundEggs = [];
+let groundSeq = 0;
+function spawnGroundEgg(h, x, y, z, id) {
+  if (!id) { id = `${NET.id}-${++groundSeq}`; NET.send({ t: 'gdrop', c: lastCycle, gid: id, lv: h.lv, g: h.g, i: h.e.idx, x, y, z }); }
+  const pos = new THREE.Vector3(x, y + EGG_SCALE * 1.05, z);
+  const m = makeEggMesh(h.lv, h.g); m.position.copy(pos); groundGroup.add(m);
+  const outline = new THREE.Mesh(EGG_GEO, OUTLINE_MAT); outline.scale.setScalar(1.14); outline.visible = false; m.add(outline);
+  const parts = [m];
+  if (h.g === SECRET) { const a = halo(0xff4dd2, 2.2); a.position.copy(pos); groundGroup.add(a); parts.push(a); }
+  groundEggs.push({ id, ground: true, g: h.g, n: h.n, origin: h.e, pos, mesh: m, outline, parts, taken: false, ph: Math.random() * 6 });
+}
+function clearGroundEggs() { groundGroup.clear(); groundEggs = []; }
+function removeGroundEgg(e) { e.parts.forEach(p => groundGroup.remove(p)); groundEggs = groundEggs.filter(x => x !== e); }
+function hideEgg(e) { e.taken = true; e.parts.forEach(p => p.visible = false); e.outline.visible = false; if (outlined === e) outlined = null; }
+function returnToNest(e, remote) {
+  e.taken = false; e.parts.forEach(p => p.visible = true);
+  if (!remote) NET.send({ t: 'ret', c: lastCycle, lv: nests.findIndex(n => n.eggs.includes(e)), i: e.idx });
+}
+// 들고 있던 달걀을 놓음: 그 달걀의 단계 안이면 원래 둥지로, 다른 단계면 그 자리에 남음
+function releaseEgg(x, y, z) {
+  const h = P.held; if (!h) return null;
+  P.held = null; playerModel.holder.clear(); sleepBoss();
+  if (zoneAt(x) === h.lv) { returnToNest(h.e); return 'nest'; }
+  spawnGroundEgg(h, x, y, z); return 'ground';
+}
+function dropEgg() {
+  if (state !== 'play' || !P.held) return;
+  if (!P.onGround || P.flying > 0) { toast('땅 위에서만 내려놓을 수 있어요', 1.2); return; }
+  const r = releaseEgg(P.pos.x, P.pos.y, P.pos.z);
+  toast(r === 'nest' ? '🥚 달걀이 원래 자리로 돌아갔어요' : '🥚 달걀을 이 자리에 내려놓았어요', 1.8);
+}
+
+function updatePlayer(dt) {
+  const fwd = (keys.KeyW || keys.ArrowUp ? 1 : 0) - (keys.KeyS || keys.ArrowDown ? 1 : 0) + joy.y;
+  const side = (keys.KeyD || keys.ArrowRight ? 1 : 0) - (keys.KeyA || keys.ArrowLeft ? 1 : 0) + joy.x;
+  let wx = -Math.sin(camYaw) * fwd + Math.cos(camYaw) * side, wz = -Math.cos(camYaw) * fwd - Math.sin(camYaw) * side;
+  const wl = Math.hypot(wx, wz); if (wl > 1) { wx /= wl; wz /= wl; }   // 조이스틱은 살짝 밀면 천천히
+  const acc = Math.min(1, dt * (P.onGround ? 14 : 5));
+  P.vel.x += (wx * RUN - P.vel.x) * acc; P.vel.z += (wz * RUN - P.vel.z) * acc;
+
+  if (P.ground) { P.pos.x += P.ground.dx; P.pos.z += P.ground.dz; }
+
+  P.coyote = P.onGround ? 0.12 : P.coyote - dt;
+  P.jumpBuf -= dt;
+  if (flyQueue > 0) { flyQueue -= dt; if (flyQueue <= 0 && !P.onGround && !(P.flying > 0) && !P.held && !P.pick) startFly(); }
+  if (P.jumpBuf > 0 && P.coyote > 0) { P.vel.y = JUMP; P.coyote = 0; P.jumpBuf = 0; P.onGround = false; P.ground = null; sfx('jump'); }
+
+  // 밤에는 농장 쪽에서 오비로 못 들어감 (방벽)
+  barrierC.solid = night && P.pos.x < barrierC.cx;
+
+  if (P.flying > 0) { P.flying -= dt; if (P.flying <= 0) stopFly(); }
+
+  const steps = Math.ceil(dt / (1 / 120)), h = dt / steps;
+  for (let i = 0; i < steps; i++) {
+    if (P.flying > 0) P.vel.y = 0;             // 비행 중에는 높이 유지
+    else P.vel.y = Math.max(P.vel.y - G * h, -45);
+    P.pos.x += P.vel.x * h; resolveH('x');
+    P.pos.z += P.vel.z * h; resolveH('z');
+    const prevY = P.pos.y; P.pos.y += P.vel.y * h;
+    P.onGround = false;
+    let ground = null;
+    for (const c of colliders) {
+      if (!c.solid || !overlapP(c)) continue;
+      if (P.vel.y <= 0 && prevY >= c.maxY - 0.3) { P.pos.y = c.maxY; P.vel.y = 0; P.onGround = true; ground = c; }
+      else if (P.vel.y > 0 && prevY + PH <= c.minY + 0.3) { P.pos.y = c.minY - PH; P.vel.y = 0; }
+    }
+    P.ground = ground;
+  }
+  if (P.onGround) P.canFly = true;   // 땅에 닿으면 다시 날 수 있음
+
+  // 위험물: 회전 막대 HP -30, 가시 블록 HP -70 (HP 0이 되면 농장으로) / 낙하 → 농장으로
+  P.hurtT -= dt;
+  if (P.pos.x < 0) P.hp = MAX_HP;   // 농장에 오면 HP 회복
+  if (P.hurtT <= 0) for (const hz of hazards) {
+    if (hz.kind === 'spike') {
+      if (P.pos.x + HW > hz.minX && P.pos.x - HW < hz.maxX && P.pos.z + HW > hz.minZ && P.pos.z - HW < hz.maxZ && P.pos.y < hz.maxY && P.pos.y + PH > hz.minY) {
+        if (hurt(70, '앗! 가시 블록!', P.pos.x - (hz.minX + hz.maxX) / 2, P.pos.z - (hz.minZ + hz.maxZ) / 2)) return;
+        break;
+      }
+    } else {
+      const dx = P.pos.x - hz.cx, dz = P.pos.z - hz.cz, ca = Math.cos(hz.angle), sa = Math.sin(hz.angle);
+      const lx = dx * ca - dz * sa, lz = dx * sa + dz * ca;
+      if (Math.abs(lx) < hz.len / 2 + HW && Math.abs(lz) < 0.18 + HW && P.pos.y < hz.y0 + 0.18 && P.pos.y + PH > hz.y0 - 0.18) {
+        if (hurt(30, '으악! 회전 막대!', dx, dz)) return;
+        break;
+      }
+    }
+  }
+  if (P.pos.y < -12) return fail(P.pos.x > levelStarts[2] ? '앗 뜨거! 용암에 빠졌다!' : '으아아 떨어졌다!');
+
+  // 달걀 가까이 가면 흰색 윤곽선
+  const ne = nearEgg();
+  const holdPick = keys.KeyE || mouseHeld || touchHeld;
+  if (!P.pick && holdPick && ne && !(P.flying > 0)) P.pick = { n: ne.n, e: ne.e, t: 0, tick: 0 };   // 날개로 나는 중에는 못 듦
+  const target = P.pick ? P.pick.e : ne ? ne.e : null;
+  if (outlined !== target) { if (outlined) outlined.outline.visible = false; if (target) target.outline.visible = true; outlined = target; }
+
+  // 달걀 들기 (3초 동안 꾹 누르기)
+  let pr = '';
+  if (P.pick) {
+    const pk = P.pick, d = Math.hypot(P.pos.x - pk.e.pos.x, P.pos.z - pk.e.pos.z);
+    if (pk.e.taken || d > 2.2) { P.pick = null; toast('달걀 들기 취소', 1); }
+    else if (!holdPick) { P.pick = null; toast('✋ 손을 떼서 취소됐어요\n3초 동안 꾹 누르고 있어야 해요', 1.6); }
+    else {
+      pk.t += dt; pk.tick -= dt;
+      if (pk.tick <= 0) { sfx('tick'); pk.tick = 0.5; }
+      pr = `${eggLabel(pk.n.lv, pk.e.g)} 훔치는 중... ${Math.max(0, 3 - pk.t).toFixed(1)}초<div class="pbar"><div style="width:${Math.min(100, pk.t / 3 * 100)}%"></div></div>`;
+      if (pk.t >= 3) { takeEgg(pk.n, pk.e); P.pick = null; pr = ''; }
+    }
+  } else if (nearShop()) {
+    pr = '<b>E</b> — 🪽 날개 상점 열기';
+  } else if (nearSellShop()) {
+    pr = '<b>E</b> — 💰 판매 상점 열기 (펫·알 팔기)';
+  } else if (P.held && inPen()) {
+    const es = nearEmptySlot();
+    if (es) pr = `<b>E</b> — 🥚 <b>${es.i + 1}번 칸</b>에 달걀 심기`;
+    else if (penFull()) pr = `우리가 가득 찼어요 — <b>E</b>: 달걀 팔기 (+${fmt(animalOf(P.held.lv, P.held.g).inc * 60)}원)`;
+    else pr = '🐣 원하는 <b>빈 칸</b>(바닥의 노란 동그라미) 위로 가서 <b>E</b>를 눌러 심어요';
+  } else if (penChoice()) {
+    const c = penChoice();
+    if (c.place !== undefined) pr = `<b>E</b> — 핫바 ${hotSel + 1}번 ${itemName(SAVE.inv[hotSel])}을(를) <b>${c.place + 1}번 칸</b>에 놓기`;
+    else { const { v } = c.pick; pr = `<b>E</b> — ${v.kind === 'baby' ? `${EMOJI[v.a.type]} ${v.a.name}` : '🥚 부화 중인 알'} 들기 (🎒 인벤토리로)`; }
+  } else if (P.held && inOtherPen()) {
+    pr = '🚫 다른 사람의 우리예요 — <b>내 우리</b>(노란 간판)로 가세요';
+  } else if (ne && P.flying > 0) {
+    pr = '🪽 날개로 나는 중에는 달걀을 들 수 없어요';
+  } else if (ne) {
+    pr = `<b>E</b> 또는 <b>클릭</b>을 <b>3초 꾹</b> — ${eggLabel(ne.n.lv, ne.e.g)} 들기 <span style="color:#ff8080">⚠ ${LEVELS[ne.n.lv].boss}가 깨어나요!</span>`;
+  } else if (P.held && P.pos.x < 0 && !inPen()) {
+    pr = '🐣 울타리 우리 안으로 들어가야 달걀을 넣을 수 있어요';
+  }
+  $('prompt').classList.toggle('hidden', !pr);
+  if (pr) $('prompt').innerHTML = pr;
+
+  // 우리 안: 심을 칸 노랗게 표시 (달걀을 들었거나 핫바에 아이템이 있을 때)
+  const hc = P.held ? nearEmptySlot() : penChoice();
+  highlightSlot(P.held ? (hc ? hc.i : -1) : (hc && hc.place !== undefined ? hc.place : -1));
+  P.invuln -= dt;
+
+  // 모델 애니메이션
+  const hs = Math.hypot(P.vel.x, P.vel.z);
+  if (hs > 0.5) {
+    const want = Math.atan2(P.vel.x, P.vel.z); let diff = want - P.face; diff = Math.atan2(Math.sin(diff), Math.cos(diff));
+    P.face += diff * Math.min(1, dt * 12);
+  }
+  P.anim += dt * hs * 1.6;
+  const pm = playerModel, sw = P.onGround ? Math.sin(P.anim) * Math.min(1, hs / 6) * 0.9 : 0.5;
+  pm.legs[0].rotation.x = sw; pm.legs[1].rotation.x = -sw;
+  const up = P.held || P.pick;
+  pm.arms[0].rotation.x = up ? Math.PI : -sw; pm.arms[1].rotation.x = up ? Math.PI : sw;
+  pm.g.position.copy(P.pos); pm.g.rotation.y = P.face;
+  pm.g.visible = !((P.invuln > 0 || P.hurtT > 0) && Math.sin(T * 30) > 0);
+  if (P.flying > 0) pm.wl.forEach((p, k) => { p.rotation.z = (k ? -1 : 1) * Math.sin(T * 14) * 0.5; });
+}
+
+// 실패 (떨어짐 / 함정 / 잡힘) → 달걀 없이 농장으로
+function goFarm() {
+  if (P.held) { P.held = null; playerModel.holder.clear(); }
+  P.pick = null; sleepBoss(); stopFly(); P.hp = MAX_HP; P.hurtT = 0;
+  P.pos.copy(farmSpawn()); P.vel.set(0, 0, 0); P.ground = null; P.invuln = 1;
+  camYaw = -Math.PI / 2;
+}
+// 함정에 맞음: HP만 줄고 그대로 통과 (1초 무적). HP 0이면 농장으로 → true 반환
+function hurt(dmg, msg) {
+  P.hp = Math.max(0, P.hp - dmg);
+  if (P.hp <= 0) { fail(`${msg} HP 0!`); return true; }
+  P.hurtT = 1.0; shake = 0.25; sfx('die');
+  toast(`${msg} -${dmg} HP`, 1.2);
+  return false;
+}
+function fail(msg) {
+  const had = P.held;
+  if (had) { P.held = null; playerModel.holder.clear(); sleepBoss(); returnToNest(had.e); }   // 떨어진 달걀은 원래 둥지로
+  sfx('die'); shake = 0.4; goFarm();
+  toast(had ? `${msg}\n달걀은 원래 자리로 돌아갔어요` : `${msg}\n농장으로 돌아왔어요`, 2.2);
+}
+function caught() {
+  const L = B.L;
+  const y = P.onGround ? P.pos.y : groundAt(P.pos.x);
+  const r = releaseEgg(P.pos.x, y, P.pos.z);
+  sfx('caught'); shake = 0.6; goFarm();
+  toast(`${L.emoji} ${L.boss}에게 잡혔다!\n${r === 'nest' ? '달걀은 원래 자리로 돌아갔어요' : '달걀은 잡힌 자리에 떨어졌어요'}`, 2.8);
+}
+
+function takeEgg(n, e) {
+  hideEgg(e);
+  let origin = e;
+  if (e.ground) {   // 바닥에 내려놨던 달걀을 다시 주움
+    origin = e.origin;
+    removeGroundEgg(e);
+    NET.send({ t: 'gtake', c: lastCycle, gid: e.id });
+  } else NET.send({ t: 'take', c: lastCycle, lv: n.lv, i: e.idx });
+  P.held = { lv: n.lv, g: e.g, n, e: origin };
+  stopFly();   // 달걀을 들면 날 수 없음
+  const held = makeEggMesh(n.lv, e.g); playerModel.holder.add(held);
+  if (e.g === SECRET) { const h = halo(0xff4dd2, 1.6); playerModel.holder.add(h); }
+  sfx('pick');
+  toast(`🥚 ${eggLabel(n.lv, e.g)}을(를) 들었다!\n😱 ${LEVELS[n.lv].boss}가 깨어난다...!`, 2.2);
+  camYaw = Math.PI / 2;   // 농장 쪽을 바라보게
+  wakeBoss(n);
+}
+
+// 고른 칸(idx)에 들고 온 달걀 심기. idx = -1 이면 우리가 가득 차서 팔기
+function depositEgg(idx) {
+  const { lv, g } = P.held, a = animalOf(lv, g);
+  if (idx >= 0 && !SAVE.slots[idx]) {
+    SAVE.slots[idx] = newSlot(lv, g, 0);
+    toast(`🏡 ${eggLabel(lv, g)}을(를) ${idx + 1}번 칸에 심었다!\n무엇이 태어날까?`, 2.4);
+  } else {
+    const price = a.inc * 60;
+    SAVE.money += price;
+    toast(`농장이 가득 차서 달걀을 팔았다! +${fmt(price)} 💰`, 2.8);
+  }
+  if (!SAVE.codex.includes(lv + '-' + g)) SAVE.codex.push(lv + '-' + g);
+  sfx('clear');
+  P.held = null; playerModel.holder.clear();
+  sleepBoss();
+  save(); rebuildFarm();
+}
+
+// =====================================================================
+//  게임 상태 / 화면
+// =====================================================================
+let state = 'title', T = 0, night = isNightAt(Date.now()), lastCycle = cycleIndex(Date.now());
+const overlay = $('overlay');
+function showOverlay(html) { overlay.innerHTML = `<div class="panel">${html}</div>`; overlay.classList.remove('hidden'); }
+function hideOverlay() { overlay.classList.add('hidden'); }
+
+function titleScreen() {
+  state = 'title'; $('hud').classList.add('hidden'); unlock();
+  showOverlay(`
+    <h1>🥚 달걀 도둑 농장 3D</h1>
+    <p>잠든 보스의 달걀을 훔쳐 와서 내 농장에서 부화시켜 돈을 벌자!</p>
+    <div class="rules">
+      🔹 맨 뒤 <b>🏡 내 농장</b>에서 출발 → <b>1단계 초원 → 2단계 정글 → 3단계 공룡 지역</b> 오비<br>
+      🔹 오비를 깨면 둥지에 <b>달걀 5개</b>가 랜덤 등급으로 생겨요. 등급은 보이지 않아요! (시크릿만 빛나요 ✨)<br>
+      🔹 달걀에 가까이 가면 흰 윤곽선이 생겨요. <b>E 또는 클릭을 3초 동안 꾹</b> 누르고 있어야 들 수 있어요.<br>
+      🔹 달걀을 들면 잠자던 보스(🐔→🐯→🦖)가 깨어나요! 오비를 거꾸로 깨서 <b>울타리 우리 안</b>까지 가져가요.<br>
+      🔹 <b>R / 달걀 내리기</b>: 그 단계 안이면 달걀이 원래 자리로, 다른 단계면 그 자리에 남아요. 보스에게 잡혀도 똑같아요.<br>
+      🔹 떨어지거나 잡히면 <b>달걀 없이 농장으로</b> 돌아가요. (체크포인트 없음)<br>
+      🔹 <b>🪽 날개 상점</b>: 흰색(10만원, 2초) · 검은(100만원, 2.5초) · 은색(300만원, 3초) · 금색(500만원, 4.5초) — <b>Shift+Space</b> 또는 <b>🪽 버튼</b>으로 비행!<br>
+      🔹 <b>🎒 인벤토리</b>(M키 / 가방 클릭, 100칸): 우리 안에서 펫·알 앞에서 <b>E</b>로 들기 → <b>💰 판매 상점</b>에서 팔기<br>
+      🔹 달걀을 가져오면 <b>내 우리</b>에서 원하는 <b>빈 칸</b>(노란 동그라미) 위에 서서 <b>E</b> → 그 칸에 심어요. 핫바에서 고른 펫·알도 같은 방법으로 놓을 수 있어요.<br>
+      🔹 낮 <b>5분</b>이 지나면 <b>밤 10초</b> — 방벽이 오비 입구를 막고, 달걀이 <b>3배 빨리</b> 자라요. 아침이 되면 달걀이 새로 생겨요.<br>
+      🔹 부화한 동물이 매초 돈을 벌어요. 게임을 꺼도 달걀은 계속 자라요!<br>
+      🔹 <b>🌐 함께 하기</b>: 이 게임에 들어오기만 하면 자동으로 같은 방에 접속해요 (최대 5명, 1명당 우리 1개). 다른 사람의 모습과 우리가 보이고, 누가 훔친 달걀은 모두에게서 사라져요.
+    </div>
+    <p style="font-size:13px;color:#9aa">📱 모바일: 왼쪽 조이스틱 이동 · 화면 드래그 카메라 · 두 손가락 줌 · ⤒ 점프 · ✋ E(꾹 누르면 달걀 들기) · 🪽 날기 · ⏸ 일시정지</p>
+    <p style="font-size:13px;color:#9aa">WASD 이동 · Space 점프 · Shift+Space·🪽버튼 날기 · E·클릭 꾹 달걀 훔치기 · E 상점/펫 들기 · R 달걀 내리기 · M·0 인벤토리 · 1~9 핫바 · 휠 줌 · ESC 일시정지</p>
+    <div class="netBox"><div id="netStatus">${NET.status}</div>
+      <label>내 이름 <input id="netName" maxlength="10" value="${NET.name.replace(/[&"<>]/g, "")}" onchange="setNetName(this.value)"></label></div>
+    <button class="btn" onclick="setNetName($('netName').value);startGame()">게임 시작</button>
+    <button class="btn gray" onclick="codexScreen()">동물 도감</button>
+    <button class="btn gray" id="resetBtn" onclick="resetData()">데이터 초기화</button>
+    <p style="font-size:11px;color:#667;margin-top:10px">버전 ${GAME_VER}${IS_TOUCH ? ` · 📱 ${ROT ? "가로로 돌림" : "가로 화면"}` : ""}</p>`);
+}
+let resetArmed = false;
+function resetData() {
+  if (!resetArmed) { resetArmed = true; $('resetBtn').textContent = '정말요? 한 번 더 클릭'; return; }
+  resetArmed = false; SAVE = freshSave(); save(); rebuildFarm(); titleScreen();
+}
+
+function codexScreen() {
+  let cells = '', total = 0;
+  ANIMALS.forEach((row, lv) => {
+    cells += `<div class="row-label">${LEVELS[lv].emoji} ${LEVELS[lv].name}</div>`;
+    row.forEach((a, g) => {
+      total++;
+      const has = SAVE.codex.includes(lv + '-' + g);
+      cells += `<div class="cell">${has ? eggHTML(lv, g) : '<div class="egg unknown"></div>'}<div style="margin-top:6px;font-weight:bold">${has ? a.name : '???'}</div>
+        <div style="color:#ffd23f">${has ? `초당 ${fmt(a.inc)}원` : ''}</div><div style="color:#9aa">${has ? `부화 ${mmss(a.ht)}` : ''}</div></div>`;
+    });
+  });
+  showOverlay(`<h2>📖 동물 도감 (${SAVE.codex.length}/${total})</h2><div class="codex">${cells}</div>
+    <button class="btn gray" onclick="titleScreen()">돌아가기</button>`);
+}
+
+function startGame() {
+  goFarm(); P.invuln = 0;
+  hideOverlay(); $('hud').classList.remove('hidden'); state = 'play'; lock();
+  if (IS_TOUCH) {   // 모바일: 전체 화면으로 (지원하는 브라우저만)
+    // 전체 화면이 되면 안드로이드는 화면 자체를 가로로 고정 (안 되면 위의 90° 돌리기로 가로)
+    try {
+      const r = document.documentElement.requestFullscreen && document.documentElement.requestFullscreen();
+      if (r && r.then) r.then(() => { if (screen.orientation && screen.orientation.lock) return screen.orientation.lock('landscape'); }).catch(() => {});
+    } catch (e) {}
+  }
+  if (offlineEarned >= 1) { toast(`없는 동안 농장이 ${fmt(offlineEarned)} 💰을 벌었어요!`, 3); offlineEarned = 0; }
+  else toast('➡ 오비를 깨고 둥지의 달걀을 훔쳐 오자!', 2.5);
+  buildBar();
+}
+function resume() { hideOverlay(); state = 'play'; lock(); }
+function openShop() { state = 'shop'; unlock(); renderShop(); }
+function renderShop() {
+  const items = WINGS.map(w => {
+    const owned = SAVE.wings.includes(w.id), eq = SAVE.equip === w.id;
+    const btn = !owned ? `<button class="btn" ${SAVE.money < w.price ? 'disabled' : ''} onclick="buyWing('${w.id}')">${fmt(w.price)}원</button>`
+      : eq ? '<button class="btn gray" disabled>장착 중</button>' : `<button class="btn gray" onclick="equipWing('${w.id}')">장착</button>`;
+    return `<div class="item"><div><span class="wingIcon" style="background:${w.css}"></span><b>${w.name}</b><br>
+      <span style="font-size:13px;color:#cfd3ea">${w.dur}초 동안 비행</span></div>${btn}</div>`;
+  }).join('');
+  showOverlay(`<h2>🪽 날개 상점</h2><p>보유: <b style="color:#ffd23f">${fmt(SAVE.money)}원</b></p><div class="shop">${items}</div>
+    <p style="font-size:13px;margin-top:12px"><b>Shift+Space</b> 또는 오른쪽 <b>🪽 버튼</b> → 비행 시작 · 게임 시간 <b>하루에 3번</b>까지 (아침에 충전)<br>
+    달걀을 들고 있거나 드는 중에는 날 수 없어요<br>
+    비행 중 <b>Space</b> 또는 <b>내리기</b> 버튼 → 날개가 사라지며 비행 중단</p>
+    <button class="btn gray" onclick="resume()">닫기</button>`);
+}
+function buyWing(id) {
+  const w = WINGS.find(x => x.id === id);
+  if (SAVE.wings.includes(id) || SAVE.money < w.price) return;
+  SAVE.money -= w.price; SAVE.wings.push(id); SAVE.equip = id; sfx('buy'); save(); renderShop();
+}
+function equipWing(id) { SAVE.equip = id; save(); renderShop(); }
+
+// ---------- 인벤토리 (100칸) ----------
+const itemName = it => it.kind === 'pet' ? animalOf(it.lv, it.g).name : (it.g === SECRET ? '드래곤 에그' : `${BIOMES[it.lv]} 알`);
+const itemIcon = it => it.kind === 'pet' ? `<div class="ico">${EMOJI[animalOf(it.lv, it.g).type]}</div>` : eggHTML(it.lv, it.g);
+const priceOf = it => it.kind === 'pet' ? animalOf(it.lv, it.g).inc * PET_PRICE_MULT : (it.g === SECRET ? SECRET_EGG_PRICE : EGG_PRICE[it.lv]);
+const freeSlot = () => { for (let i = 0; i < SLOTS; i++) if (!SAVE.slots[i]) return i; return -1; };
+function pickPenItem({ i, v }) {
+  if (SAVE.inv.length >= INV_MAX) { toast('🎒 인벤토리가 가득 찼어요 (100칸)', 1.5); return; }
+  const s = SAVE.slots[i];
+  const it = v.kind === 'baby' ? { kind: 'pet', lv: s.lv, g: s.g } : { kind: 'egg', lv: s.lv, g: s.g, prog: progNow(s) };
+  SAVE.inv.push(it); SAVE.slots[i] = null;
+  save(); rebuildFarm(); sfx('pick');
+  toast(`🎒 ${itemName(it)}을(를) 인벤토리에 넣었어요`, 1.6);
+}
+let invSel = -1, invMsg = '';
+function openInv() { if (state !== 'play') return; state = 'inv'; unlock(); invSel = -1; invMsg = ''; renderInv(); }
+function selInv(i) { invSel = i; invMsg = ''; renderInv(); }
+function renderInv() {
+  const cells = Array.from({ length: INV_MAX }, (_, i) => {
+    const it = SAVE.inv[i];
+    return `<div class="invCell${it ? ' has' : ''}${i < HOT_N ? ' hot' : ''}${i === invSel ? ' sel' : ''}" ${it ? `onclick="selInv(${i})"` : ''}>
+      <span class="invNo">${i + 1}</span>${it ? itemIcon(it) + `<div class="invName">${itemName(it)}</div>
+      <button class="cellBtn" onclick="event.stopPropagation();placeFromInv(${i})">🐣 우리에 놓기</button>` : ''}</div>`;
+  }).join('');
+  let detail = '<span style="color:#9aa">아이템을 클릭하면 정보가 보여요 · 파란 1~9번 칸은 아래 핫바에 나와요 · 우리 안에서 펫이나 알 앞에서 <b>E</b>를 누르면 인벤토리에 들어와요</span>';
+  const it = SAVE.inv[invSel];
+  if (it) {
+    const a = animalOf(it.lv, it.g);
+    detail = `${itemIcon(it)}<div><b style="font-size:18px">${itemName(it)}</b><br>
+      ${it.kind === 'pet' ? `초당 ${fmt(a.inc)}원 (우리에 있을 때만)` : `부화까지 ${minSec(a.ht - it.prog)} (우리에 있을 때만 자라요)`} · 판매가 <b style="color:#ffd23f">${fmt(priceOf(it))}원</b><br>
+      <button class="btn" onclick="placeFromInv(${invSel})">🐣 우리에 놓기</button>
+      <span style="font-size:12px;color:#9aa;margin-left:8px">판매는 💰 판매 상점에서만 가능해요</span>
+      ${invMsg ? `<div style="color:#ff8080">${invMsg}</div>` : ''}</div>`;
+  }
+  overlay.innerHTML = `<div class="invFull"><div class="invHead"><h2 style="margin:0">🎒 인벤토리 (${SAVE.inv.length}/${INV_MAX})</h2>
+    <button class="btn gray" onclick="resume()">닫기 (M)</button></div><div class="invDetail">${detail}</div><div class="invGrid">${cells}</div></div>`;
+  overlay.classList.remove('hidden');
+}
+// ---------- 핫바 (10칸) ----------
+// 1~9번 칸은 인벤토리 1~9번 칸을 그대로 보여주고, 10번 칸은 인벤토리(100칸)를 연다
+const HOT_N = 9;
+let hotSel = 0, hotKey = '';
+function selHot(i) { hotSel = i; hotKey = ''; renderHotbar(); }
+function renderHotbar() {
+  const key = hotSel + '|' + SAVE.inv.slice(0, HOT_N).map(it => it.kind + it.lv + '-' + it.g).join(',');
+  if (key === hotKey) return;
+  hotKey = key;
+  let html = '';
+  for (let i = 0; i < HOT_N; i++) {
+    const it = SAVE.inv[i];
+    html += `<button class="hotCell${i === hotSel ? ' sel' : ''}" onclick="selHot(${i})" title="${it ? itemName(it) : '빈 칸'} (${i + 1})">
+      <span class="hotNo">${i + 1}</span>${it ? itemIcon(it) : ''}</button>`;
+  }
+  html += `<button id="bagBtn" class="hotCell" title="인벤토리 (M / 0)" onclick="openInv()"><span class="hotNo">0</span>🎒</button>`;
+  $('hotbar').innerHTML = html;
+  const it = SAVE.inv[hotSel];
+  $('hotName').classList.toggle('hidden', !it);
+  if (it) $('hotName').textContent = itemName(it);
+}
+// 인벤토리 i번 아이템을 우리 idx번 칸에 놓기
+function placeInvAt(i, idx) {
+  const it = SAVE.inv[i]; if (!it || SAVE.slots[idx]) return;
+  SAVE.slots[idx] = it.kind === 'pet'
+    ? newSlot(it.lv, it.g, animalOf(it.lv, it.g).ht + 1)   // 이미 태어난 펫
+    : newSlot(it.lv, it.g, it.prog);                       // 자라던 만큼 이어서
+  SAVE.inv.splice(i, 1);
+  save(); rebuildFarm(); sfx('pick');
+  if (state === 'play') toast(`🐣 ${itemName(it)}을(를) ${idx + 1}번 칸에 놓았어요`, 1.6);
+}
+function placeFromInv(i) {
+  if (!SAVE.inv[i]) return;
+  const idx = freeSlot();
+  if (idx < 0) { invSel = i; invMsg = '우리가 가득 찼어요 (18칸)'; renderInv(); return; }
+  placeInvAt(i, idx); invSel = -1; renderInv();
+}
+
+// ---------- 판매 상점 (펫·알 팔기) ----------
+function openSell() { state = 'shop'; unlock(); renderSell(); }
+function renderSell() {
+  let rows = '';
+  if (P.held) {
+    const h = { kind: 'egg', lv: P.held.lv, g: P.held.g };
+    rows += `<div class="item"><div style="display:flex;align-items:center;gap:10px">${itemIcon(h)}<div><b>${itemName(h)}</b> <span style="color:#9aa">(들고 있는 알)</span></div></div>
+      <button class="btn" onclick="sellHeld()">${fmt(priceOf(h))}원에 팔기</button></div>`;
+  }
+  SAVE.inv.forEach((it, i) => {
+    rows += `<div class="item"><div style="display:flex;align-items:center;gap:10px">${itemIcon(it)}<div><b>${itemName(it)}</b><br>
+      <span style="font-size:12px;color:#9aa">${it.kind === 'pet' ? '펫' : '알'}</span></div></div>
+      <button class="btn" onclick="sellInv(${i})">${fmt(priceOf(it))}원에 팔기</button></div>`;
+  });
+  const total = SAVE.inv.reduce((a, it) => a + priceOf(it), 0);
+  showOverlay(`<h2>💰 판매 상점</h2><p>보유: <b style="color:#ffd23f">${fmt(SAVE.money)}원</b></p>
+    <div class="shop">${rows || '<p>팔 수 있는 펫이나 알이 없어요.<br>우리 안에서 펫·알 앞에서 <b>E</b>를 누르면 인벤토리에 들어와요.</p>'}</div>
+    ${SAVE.inv.length ? `<button class="btn" onclick="sellAll()">인벤토리 전부 팔기 (${fmt(total)}원)</button>` : ''}
+    <button class="btn gray" onclick="resume()">닫기</button>`);
+}
+function sellInv(i) {
+  const it = SAVE.inv[i]; if (!it) return;
+  SAVE.money += priceOf(it); SAVE.inv.splice(i, 1); sfx('buy'); save(); renderSell();
+}
+function sellAll() {
+  SAVE.money += SAVE.inv.reduce((a, it) => a + priceOf(it), 0); SAVE.inv = []; sfx('buy'); save(); renderSell();
+}
+function sellHeld() {
+  if (!P.held) return;
+  SAVE.money += priceOf({ kind: 'egg', lv: P.held.lv, g: P.held.g });
+  P.held = null; playerModel.holder.clear(); sleepBoss(); sfx('buy'); save(); renderSell();
+}
+function pauseGame() {
+  state = 'paused';
+  showOverlay(`<h2>⏸ 일시정지</h2><button class="btn" onclick="resume()">계속하기</button><button class="btn gray" onclick="save();titleScreen()">처음 화면</button>`);
+}
+
+function buildBar() {
+  document.querySelectorAll('.barNest').forEach(e => e.remove());
+  const span = mapEnd - FARM_X0;
+  $('barFarm').style.width = (-FARM_X0 / span * 100) + '%';
+  nests.forEach(n => { const d = document.createElement('div'); d.className = 'barNest'; d.style.left = ((n.x - FARM_X0) / span * 100) + '%'; $('bar').appendChild(d); });
+}
+function updateHUD() {
+  const span = mapEnd - FARM_X0, pct = x => Math.max(0, Math.min(100, (x - FARM_X0) / span * 100)) + '%';
+  const zone = P.pos.x < 0 ? -1 : P.pos.x >= levelStarts[2] ? 2 : P.pos.x >= levelStarts[1] ? 1 : 0;
+  $('hStage').textContent = zone < 0 ? '🏡 내 농장' : `${LEVELS[zone].emoji} ${LEVELS[zone].name}`;
+  if (!B) $('hStatus').textContent = '😴 보스들은 쿨쿨 자는 중';
+  else if (B.state === 'waking') $('hStatus').textContent = `${B.L.emoji} ${B.L.boss}: 😳 깨어나는 중!`;
+  else $('hStatus').textContent = `${B.L.emoji} ${B.L.boss}: 🚨 추격 중! 거리 ${Math.round(Math.hypot(P.pos.x - B.x, P.pos.z - B.z))}m`;
+  const cp = cyclePos(Date.now());
+  $('hTime').innerHTML = night
+    ? `🌙 <b>밤</b> · 방벽! ${Math.ceil(CYCLE - cp)}초 후 새 달걀 <span style="color:#b8c8ff">(달걀 성장 ×3)</span>`
+    : `☀️ <b>낮</b> · 달걀 리셋까지 ${mmss(DAY - cp)}`;
+  $('barMe').style.left = pct(P.pos.x);
+  $('barBoss').classList.toggle('hidden', !B);
+  if (B) $('barBoss').style.left = pct(B.x);
+  $('hMoney').textContent = `💰 ${fmt(SAVE.money)}원`;
+  $('hIncome').textContent = `초당 +${fmt(totalIncome())}원`;
+  const used = SAVE.slots.filter(Boolean).length;
+  $('hFarm').textContent = `🏡 부화 칸 ${used}/${SLOTS}` + (NET.ready ? ` · 🌐 ${netCount()}명` : '');
+  renderHotbar();
+  $('hpFill').style.width = (P.hp / MAX_HP * 100) + '%';
+  $('hpFill').style.background = P.hp >= 70 ? '#3ccf4e' : P.hp >= 50 ? '#ffd23f' : '#ff3b3b';
+  $('hpText').textContent = Math.round(P.hp);
+  const w = curWing();
+  $('hFly').textContent = w ? `🪽 ${w.name} 오늘 ${flyLeft()}/${FLY_PER_DAY}회 남음` : '';
+  $('jumpBanner').classList.toggle('hidden', !P.held);
+  $('btnDrop').classList.toggle('hidden', !P.held);
+  const fb = $('btnFly'), fl = P.flying > 0;
+  fb.classList.toggle('hidden', !w);
+  fb.classList.toggle('land', fl);
+  fb.classList.toggle('off', !fl && (flyLeft() <= 0 || !!P.held));
+  if (w) fb.innerHTML = fl ? '<b>⬇</b>내리기' : `<b>🪽</b>날기 ${flyLeft()}/${FLY_PER_DAY}`;
+  $('flyBar').classList.toggle('hidden', !(P.flying > 0));
+  if (P.flying > 0) $('flyBar').innerHTML = `🪽 비행 중 ${P.flying.toFixed(1)}초<div class="pbar"><div style="width:${P.flying / P.flyMax * 100}%"></div></div>`;
+  const d = B ? Math.hypot(P.pos.x - B.x, P.pos.z - B.z) : 99;
+  $('vignette').style.opacity = B ? Math.max(0, 1 - d / 18) : 0;
+}
+
+// 낮/밤 전환 체크
+function updateDayNight() {
+  const now = Date.now(), nNow = isNightAt(now), ci = cycleIndex(now);
+  if (nNow !== night) {
+    night = nNow;
+    barrier.visible = night;
+    if (night) {
+      clearGroundEggs();   // 밤이 되면 내려놓은 달걀도 리셋
+      const had = P.held || P.pick;
+      if (P.held) { P.held = null; playerModel.holder.clear(); sleepBoss(); }
+      P.pick = null;
+      if (state !== 'title') {
+        sfx('night');
+        // 오비·둥지 쪽에 있으면 농장으로 순간이동, 들고 있던(들던) 달걀은 사라짐
+        if (P.pos.x > barrierC.cx) {
+          goFarm();
+          toast(had ? '🌙 밤이 되어 농장으로 돌아왔어요\n가지고 있던 달걀이 사라졌어요...' : '🌙 밤이 되어 농장으로 돌아왔어요', 3);
+        } else toast(had ? '🌙 밤이 되어 가지고 있던 달걀이 사라졌어요' : '🌙 밤이 되었다!\n방벽이 생겼어요 (달걀이 3배 빨리 자라요)', 2.8);
+      }
+    }
+  }
+  if (ci !== lastCycle) {     // 밤이 끝나고 아침 → 달걀 새로 스폰
+    lastCycle = ci;
+    respawnAllEggs();
+    if (state !== 'title') toast('☀️ 아침! 둥지에 새 달걀이 생겼어요', 2.5);
+  }
+}
+
+// =====================================================================
+//  메인 루프
+// =====================================================================
+const clock = new THREE.Clock();
+let hudTick = 0, saveTick = 0;
+function loop() {
+  requestAnimationFrame(loop);
+  const dt = Math.min(clock.getDelta(), 0.05);
+  T += dt;
+  updateDayNight();
+  updateMovers(dt, T);
+  for (const n of nests) for (const e of n.eggs) {
+    if (e.taken) continue;
+    e.mesh.rotation.y += dt * 0.8; e.mesh.position.y = e.pos.y + Math.sin(T * 2 + e.ph) * 0.04;
+    if (e.aura) { e.aura.position.y = e.mesh.position.y; e.aura.material.opacity = 0.65 + Math.sin(T * 4 + e.ph) * 0.35; e.aura.scale.setScalar(2.2 + Math.sin(T * 3) * 0.3); }
+  }
+  if (barrier.visible) barrier.material.opacity = 0.45 + Math.sin(T * 6) * 0.15;
+  animateSleepers(T);
+  if (embers) {
+    const a = embers.geometry.attributes.position;
+    for (let i = 0; i < a.count; i++) { let y = a.getY(i) + dt * 2; if (y > 30) y = -12; a.setY(i, y); }
+    a.needsUpdate = true;
+  }
+  updateFarm(dt);
+  updateOthers(dt);
+  NET.tick(dt);
+  SAVE.money += totalIncome() * dt;
+  if (state === 'play') {
+    updatePlayer(dt);
+    if (state === 'play') updateBoss(dt);
+    hudTick -= dt; if (hudTick <= 0) { hudTick = 0.1; updateHUD(); }
+  }
+  saveTick -= dt; if (saveTick <= 0) { saveTick = 5; save(); }
+  if (playerModel.holder.children[0]) playerModel.holder.children[0].rotation.y += dt * 2;
+  if (toastTimer > 0) { toastTimer -= dt; if (toastTimer <= 0) $('toast').style.opacity = 0; }
+  if (secretTimer > 0) { secretTimer -= dt; if (secretTimer <= 0) $('secretBanner').classList.add('hidden'); }
+  updateCamera(dt);
+  renderer.render(scene, camera);
+}
+
+// =====================================================================
+//  온라인 (최대 5명) — 페이지를 열기만 하면 자동으로 같은 방에 들어감
+//  공개 MQTT 중계 서버를 통해 메시지를 주고받음 (서버 주소 입력 필요 없음)
+//  각자 돈·인벤토리·우리는 자기 브라우저에 저장되고, 위치·우리 모습·둥지 달걀 상태만 서로 공유
+// =====================================================================
+const NET_BROKERS = ['wss://broker.emqx.io:8084/mqtt', 'wss://broker.hivemq.com:8884/mqtt'];
+const NET_TOPIC = 'eggthief3d/avocado-kr--1/v1/room';
+const PEN_ORDER = [2, 1, 3, 0, 4];   // 가운데 우리부터 채움
+const others = new Map();            // id → { name, pen, j, slots, model, tag, tgt, face, h, w, heldKey, anim, seen }
+const penOwner = k => { for (const o of others.values()) if (o.pen === k) return o; return null; };
+const NET = {
+  client: null, on: false, ready: false, id: 'u' + Math.random().toString(36).slice(2, 10), j: 0, name: netName(), sendT: 0, status: '🌐 연결 중...',
+  send(m) {
+    if (!this.on || !this.ready || !this.client) return;
+    m.id = this.id;
+    try { this.client.publish(NET_TOPIC, JSON.stringify(m)); } catch (e) {}
+  },
+  start() {
+    this.name = netName();
+    if (typeof mqtt === 'undefined') { this.setStatus('🔌 온라인에 연결할 수 없어요 (혼자 하기)'); return; }
+    this.tryBroker(0);
+  },
+  tryBroker(bi) {
+    if (bi >= NET_BROKERS.length) { this.setStatus('🔌 온라인에 연결할 수 없어요 (혼자 하기)'); return; }
+    let c;
+    try {
+      c = mqtt.connect(NET_BROKERS[bi], { clientId: 'egt_' + this.id, connectTimeout: 6000, reconnectPeriod: 3000, keepalive: 30, clean: true,
+        will: { topic: NET_TOPIC, payload: JSON.stringify({ t: 'bye', id: this.id }), qos: 0, retain: false } });
+    } catch (e) { this.tryBroker(bi + 1); return; }
+    let connected = false;
+    const fail = setTimeout(() => { if (!connected) { c.end(true); this.tryBroker(bi + 1); } }, 7000);
+    c.on('connect', () => {
+      const first = !connected; connected = true; clearTimeout(fail);
+      this.client = c; this.on = true;
+      c.subscribe(NET_TOPIC);
+      if (first) { this.j = Date.now(); this.setStatus('🌐 방에 들어가는 중...'); setTimeout(netClaimPen, 1500); }
+      else if (this.ready) { this.send({ t: 'hello' }); netReadyStatus(); }   // 다시 연결됨
+    });
+    c.on('message', (topic, buf) => { let m; try { m = JSON.parse(buf.toString()); } catch (e) { return; } netMsg(m); });
+    c.on('offline', () => { if (connected && this.on) this.setStatus('🔌 연결이 끊겼어요... 다시 연결 중'); });
+  },
+  leave(msg) {   // 방이 가득 참 → 혼자 하기
+    this.ready = false; this.on = false;
+    try { this.client.end(true); } catch (e) {}
+    for (const id of [...others.keys()]) removeOther(id);
+    this.setStatus(msg);
+  },
+  tick(dt) {
+    if (!this.ready) return;
+    // 5초 동안 소식이 없는 플레이어는 나간 것으로 봄
+    const now = Date.now();
+    for (const o of [...others.values()]) if (now - o.seen > 5000) removeOther(o.id);
+    this.sendT -= dt; if (this.sendT > 0) return;
+    this.sendT = 0.15;
+    const w = P.flying > 0 && curWing();
+    this.send({ t: 'st', name: this.name, pen: myPen, j: this.j, x: +P.pos.x.toFixed(2), y: +P.pos.y.toFixed(2), z: +P.pos.z.toFixed(2), f: +P.face.toFixed(2),
+      h: P.held ? P.held.lv * 10 + P.held.g : -1, w: w ? w.color : 0 });
+  },
+  setStatus(s) { this.status = s; const el = $('netStatus'); if (el) el.textContent = s; },
+};
+const netCount = () => others.size + 1;
+function netReadyStatus() { NET.setStatus(`🌐 온라인: 지금 ${netCount()}명 접속 중 · 내 우리 ${myPen + 1}번`); }
+const freePen = () => { const used = new Set([...others.values()].map(o => o.pen)); return PEN_ORDER.find(k => !used.has(k)); };
+// 접속 후 1.5초 동안 다른 사람들을 확인하고 빈 우리를 차지
+function netClaimPen() {
+  const pen = freePen();
+  if (pen === undefined) { NET.leave('🚫 방이 가득 찼어요 (최대 5명) — 혼자 하기로 해요'); return; }
+  setMyPen(pen);
+  NET.ready = true;
+  NET.send({ t: 'hello' });
+  NET.send({ t: 'pen', slots: SAVE.slots });
+  netReadyStatus();
+  if (state !== 'title') toast(`🌐 온라인 접속! ${myPen + 1}번 우리가 내 우리예요\n(지금 ${netCount()}명)`, 3);
+}
+function setMyPen(k) {
+  if (k !== myPen) {
+    myPen = k; recolorPlayer();
+    if (state === 'title' || (P.pos.x < 0 && !P.held)) { P.pos.copy(farmSpawn()); P.vel.set(0, 0, 0); }
+  }
+  rebuildAllPens();
+}
+function netMsg(m) {
+  if (!m || typeof m.id !== 'string' || m.id === NET.id || typeof m.t !== 'string') return;
+  let o = others.get(m.id);
+  if (m.t === 'st') {
+    if (!(m.pen >= 0 && m.pen < PEN_N) || !isFinite(m.x) || !isFinite(m.y) || !isFinite(m.z)) return;
+    if (!o) {
+      if (others.size >= PEN_N - 1) return;
+      o = addOther(m);
+      if (NET.ready) { rebuildPen(o.pen); drawPenSigns(); toast(`👋 ${o.name}님이 들어왔어요`, 2); netReadyStatus(); }
+    }
+    o.seen = Date.now();
+    if (o.pen !== m.pen) { const old = o.pen; o.pen = m.pen; o.slots = []; recolor(o.model, PEN_COLORS[o.pen]); setTag(o); rebuildPen(old); rebuildPen(o.pen); drawPenSigns(); }
+    const nm = String(m.name || '').slice(0, 10);
+    if (nm && nm !== o.name) { o.name = nm; setTag(o); drawPenSigns(); }
+    applyState(o, m);
+    // 같은 우리를 두 사람이 고름 → 늦게 들어온 사람이 다른 빈 우리로 옮김
+    if (NET.ready && m.pen === myPen && (m.j < NET.j || (m.j === NET.j && m.id < NET.id))) {
+      const free = freePen();
+      if (free === undefined) NET.leave('🚫 방이 가득 찼어요 (최대 5명) — 혼자 하기로 해요');
+      else { setMyPen(free); NET.send({ t: 'pen', slots: SAVE.slots }); netReadyStatus(); }
+    }
+    return;
+  }
+  if (!NET.ready) return;
+  if (m.t === 'bye') { if (o) { toast(`👋 ${o.name}님이 나갔어요`, 2); removeOther(m.id); } }
+  else if (m.t === 'hello') {
+    // 새로 온 사람에게 내 우리 + (가장 먼저 온 사람이) 둥지 달걀 상태를 알려 줌
+    NET.send({ t: 'pen', slots: SAVE.slots });
+    const oldest = [...others.values()].every(x => x.id === m.id || x.j > NET.j);
+    if (oldest) NET.send({ t: 'world', to: m.id, c: lastCycle,
+      taken: nests.flatMap(n => n.eggs.filter(e => e.taken).map(e => ({ lv: n.lv, i: e.idx }))),
+      grounds: groundEggs.map(e => ({ gid: e.id, lv: e.n.lv, g: e.g, i: e.origin.idx, x: e.pos.x, y: e.pos.y - EGG_SCALE * 1.05, z: e.pos.z })) });
+  }
+  else if (m.t === 'world' && m.to === NET.id && m.c === lastCycle) {
+    (m.taken || []).forEach(t => applyTake({ c: m.c, lv: t.lv, i: t.i }));
+    (m.grounds || []).forEach(gd => applyGdrop(Object.assign({ c: m.c }, gd)));
+  }
+  else if (m.t === 'pen' && o) { o.slots = Array.isArray(m.slots) ? m.slots.slice(0, SLOTS) : []; rebuildPen(o.pen); }
+  else if (m.t === 'take') applyTake(m);
+  else if (m.t === 'ret') {
+    const e = m.c === lastCycle && nests[m.lv] && nests[m.lv].eggs[m.i];
+    if (e && e.taken && !(P.held && P.held.e === e)) returnToNest(e, true);
+  }
+  else if (m.t === 'gdrop') applyGdrop(m);
+  else if (m.t === 'gtake') {
+    const ge = groundEggs.find(x => x.id === m.gid);
+    if (ge) { hideEgg(ge); removeGroundEgg(ge); }
+  }
+}
+function recolor(model, color) {
+  const c = new THREE.Color(color);
+  model.body[0].color.copy(c); model.body[1].color.copy(c).offsetHSL(0, 0, 0.1); model.body[2].color.copy(c).offsetHSL(0, 0, -0.15);
+}
+function recolorPlayer() { recolor(playerModel, PEN_COLORS[myPen]); }
+function setTag(o) {
+  if (o.tag) scene.remove(o.tag);
+  const css = '#' + new THREE.Color(PEN_COLORS[o.pen]).offsetHSL(0, 0, 0.15).getHexString();
+  o.tag = textSprite([{ text: o.name, font: 'bold 52px Malgun Gothic', color: css, y: 64 }], 512, 128, 2.6, false);
+  scene.add(o.tag);
+}
+function addOther(m) {
+  const model = makePerson(PEN_COLORS[m.pen]);
+  const o = { id: m.id, name: String(m.name || '플레이어').slice(0, 10), pen: m.pen, j: +m.j || 0, slots: [], model, tag: null,
+    tgt: new THREE.Vector3(m.x, m.y, m.z), face: 0, h: -1, w: 0, heldKey: -1, anim: 0, seen: Date.now() };
+  model.g.position.copy(o.tgt);
+  setTag(o);
+  others.set(m.id, o);
+  return o;
+}
+function removeOther(id) {
+  const o = others.get(id); if (!o) return;
+  scene.remove(o.model.g); scene.remove(o.tag); others.delete(id);
+  rebuildPen(o.pen); drawPenSigns();
+  if (NET.ready) netReadyStatus();
+}
+function applyState(o, s) {
+  o.tgt.set(s.x, s.y, s.z); o.face = +s.f || 0; o.j = +s.j || o.j;
+  o.h = Number.isInteger(s.h) && s.h >= 0 && s.h < 30 ? s.h : -1; o.w = +s.w || 0;
+}
+function applyTake(m) {
+  if (m.c !== lastCycle) return;
+  const e = nests[m.lv] && nests[m.lv].eggs[m.i];
+  if (e && !e.taken) hideEgg(e);
+}
+function applyGdrop(m) {
+  if (m.c !== lastCycle || !m.gid || groundEggs.some(x => x.id === m.gid)) return;
+  const n = nests[m.lv]; if (!n || !n.eggs[m.i] || !EGGS[m.lv] || !EGGS[m.lv][m.g] || !isFinite(m.x)) return;
+  spawnGroundEgg({ lv: m.lv, g: m.g, n, e: n.eggs[m.i] }, m.x, m.y, m.z, m.gid);
+}
+// 다른 플레이어 움직임 (0.15초마다 오는 위치 사이를 부드럽게 이어 줌)
+function updateOthers(dt) {
+  for (const o of others.values()) {
+    const pm = o.model, g = pm.g;
+    const dx = o.tgt.x - g.position.x, dz = o.tgt.z - g.position.z, d = Math.hypot(dx, dz);
+    if (d > 12) g.position.copy(o.tgt);
+    else g.position.lerp(o.tgt, Math.min(1, dt * 10));
+    let diff = o.face - g.rotation.y; diff = Math.atan2(Math.sin(diff), Math.cos(diff));
+    g.rotation.y += diff * Math.min(1, dt * 12);
+    const moving = d > 0.05 && Math.abs(o.tgt.y - g.position.y) < 0.2;
+    o.anim += dt * (moving ? 11 : 0);
+    const sw = moving ? Math.sin(o.anim) * 0.9 : 0;
+    pm.legs[0].rotation.x = sw; pm.legs[1].rotation.x = -sw;
+    const up = o.h >= 0;
+    pm.arms[0].rotation.x = up ? Math.PI : -sw; pm.arms[1].rotation.x = up ? Math.PI : sw;
+    if (o.heldKey !== o.h) {   // 들고 있는 달걀 모양 바뀜
+      o.heldKey = o.h; pm.holder.clear();
+      if (o.h >= 0) {
+        const lv = Math.floor(o.h / 10), gr = o.h % 10;
+        if (EGGS[lv] && EGGS[lv][gr]) { pm.holder.add(makeEggMesh(lv, gr)); if (gr === SECRET) pm.holder.add(halo(0xff4dd2, 1.6)); }
+      }
+    }
+    if (pm.holder.children[0]) pm.holder.children[0].rotation.y += dt * 2;
+    pm.wingG.visible = !!o.w;
+    if (o.w) { pm.wingMat.color.setHex(o.w); pm.wl.forEach((p, k) => { p.rotation.z = (k ? -1 : 1) * Math.sin(T * 14) * 0.5; }); }
+    o.tag.position.set(g.position.x, g.position.y + (up ? 3.0 : 2.4), g.position.z);
+  }
+}
+// 이름 (안 정하면 자동으로 "농부 123")
+const NAME_KEY = 'eggthief_name';
+function netName() {
+  let n = ''; try { n = localStorage.getItem(NAME_KEY) || ''; } catch (e) {}
+  if (!n) { n = '농부 ' + Math.floor(100 + Math.random() * 900); try { localStorage.setItem(NAME_KEY, n); } catch (e) {} }
+  return n;
+}
+function setNetName(v) {
+  v = String(v || '').trim().slice(0, 10); if (!v) return;
+  NET.name = v; try { localStorage.setItem(NAME_KEY, v); } catch (e) {}
+  drawPenSigns();
+}
+addEventListener('beforeunload', () => { if (NET.ready) NET.send({ t: 'bye' }); });
+
+addEventListener('beforeunload', save);
+loadSave();
+buildWorld();
+barrier.visible = night;
+respawnAllEggs();
+rebuildFarm();
+playerModel.g.position.copy(P.pos);
+titleScreen();
+NET.start();   // 페이지를 열면 자동으로 온라인 방에 접속
+loop();
+</script>
 </body>
 </html>
