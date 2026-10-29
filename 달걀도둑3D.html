@@ -2,7 +2,9 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
 <title>달걀 도둑 농장 3D</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -87,6 +89,33 @@
   #btnFly.off { filter: grayscale(1); opacity: .6; }
   #btnFly.land { background: radial-gradient(circle at 35% 30%, #ffc58f, #d06a2f); }
   #btnDrop { bottom: 64px; background: #e0753a; }
+
+  /* ---------- 모바일 터치 조작 (터치 화면에서만 보임) ---------- */
+  canvas { touch-action: none; }
+  #touchUI { position: absolute; inset: 0; pointer-events: none; }
+  #joy { position: absolute; left: 28px; bottom: 84px; width: 124px; height: 124px; border-radius: 50%; pointer-events: auto; touch-action: none;
+    background: rgba(255,255,255,.12); border: 2px solid rgba(255,255,255,.35); }
+  #joyKnob { position: absolute; left: 50%; top: 50%; width: 56px; height: 56px; margin: -28px 0 0 -28px; border-radius: 50%; background: rgba(255,255,255,.6); pointer-events: none; }
+  .tBtn { position: absolute; pointer-events: auto; touch-action: none; width: 78px; height: 78px; border-radius: 50%; border: 3px solid rgba(255,255,255,.7);
+    background: rgba(0,0,0,.4); color: #fff; font-size: 28px; font-weight: bold; font-family: inherit; line-height: 1;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; -webkit-user-select: none; }
+  .tBtn small { font-size: 11px; margin-top: 3px; }
+  .tBtn.on { background: rgba(255,204,51,.55); }
+  #tJump { right: 24px; bottom: 96px; }
+  #tAct { right: 116px; bottom: 96px; width: 70px; height: 70px; background: rgba(255,150,40,.45); }
+  #tPause { left: 28px; bottom: 222px; width: 46px; height: 46px; font-size: 18px; }
+  body.touch #btnFly { top: auto; bottom: 186px; right: 24px; width: 78px; height: 78px; transform: none; }
+  body.touch #btnFly:active { transform: translateY(3px); }
+  body.touch #btnDrop { right: 116px; bottom: 180px; }
+  body.touch #prompt { font-size: 15px; bottom: 96px; max-width: calc(100% - 360px); white-space: normal; padding: 8px 12px; }
+  body.touch #flyBar { bottom: 190px; }
+  @media (max-height: 500px) {
+    body.touch #hudL, body.touch #hudR { padding: 6px 10px; min-width: 0; }
+    body.touch #hStage { font-size: 14px; } body.touch #hStatus, body.touch #hTime { font-size: 12px; }
+    body.touch #hMoney { font-size: 18px; } body.touch #hIncome, body.touch #hFarm, body.touch #hFly, body.touch #hpWrap { font-size: 11px; }
+    body.touch #hpBar { width: 80px; }
+    body.touch #toast { font-size: 19px; }
+  }
   .shop { display: grid; gap: 10px; margin-top: 14px; text-align: left; }
   .shop .item { display: flex; align-items: center; justify-content: space-between; gap: 10px; background: rgba(255,255,255,.07); border-radius: 12px; padding: 12px 14px; }
   .shop .item .btn { margin: 0; padding: 8px 16px; font-size: 15px; }
@@ -130,6 +159,12 @@
   <button id="btnDrop" class="hudBtn hidden" onclick="dropEgg()">🥚 달걀 내리기 (R)</button>
   <div id="hotName" class="hidden"></div>
   <div id="hotbar"></div>
+  <div id="touchUI" class="hidden">
+    <div id="joy"><div id="joyKnob"></div></div>
+    <button id="tAct" class="tBtn">✋<small>E</small></button>
+    <button id="tJump" class="tBtn">⤒<small>점프</small></button>
+    <button id="tPause" class="tBtn">⏸</button>
+  </div>
 </div>
 <div id="overlay"></div>
 
@@ -1272,29 +1307,90 @@ addEventListener('keydown', e => {
   if (e.code === 'Space') {
     e.preventDefault(); if (e.repeat) return;
     if (state === 'play' && e.shiftKey) tryFly();                                           // Shift + Space → 날기
-    else if (state === 'play' && P.flying > 0) stopFly();                                   // 비행 중 Space → 날개 사라지며 중단
-    else P.jumpBuf = 0.15;
+    else jumpPress();                                                                       // 점프 (비행 중이면 날개 사라지며 중단)
   }
   if (state === 'play' && /^Digit[0-9]$/.test(e.code) && !e.repeat) { const n = +e.code[5]; if (n === 0) openInv(); else selHot(n - 1); return; }
   if (e.code === 'KeyM' && !e.repeat) { if (state === 'play') openInv(); else if (state === 'inv') resume(); return; }
   if (e.code === 'Escape' && (state === 'inv' || state === 'shop')) { resume(); return; }
   if (state !== 'play') return;
-  if (e.code === 'KeyE' && !e.repeat) {
-    if (nearShop()) openShop();
-    else if (nearSellShop()) openSell();
-    else penAction();
-  }
+  if (e.code === 'KeyE' && !e.repeat) actionE();
   if (e.code === 'KeyR') dropEgg();
 });
+// E키 / ✋ 버튼: 상점 열기, 우리에서 심기·들기
+function actionE() {
+  if (state !== 'play') return;
+  if (nearShop()) openShop();
+  else if (nearSellShop()) openSell();
+  else penAction();
+}
+// Space / 점프 버튼
+function jumpPress() {
+  if (state !== 'play') return;
+  if (P.flying > 0) stopFly();
+  else P.jumpBuf = 0.15;
+}
 addEventListener('keyup', e => { keys[e.code] = false; });
 let camYaw = -Math.PI / 2, camPitch = 0.38, camDist = 9, locked = false, dragging = false, shake = 0;
 const camTarget = new THREE.Vector3(-2, 1.6, 0);
 function lock() { try { const p = cvs.requestPointerLock(); if (p && p.catch) p.catch(() => {}); } catch (e) {} }
-let mouseHeld = false, touchHeld = false;   // 달걀 들기는 3초 동안 꾹 누르고 있어야 함
+let mouseHeld = false, touchHeld = false;   // 달걀 들기는 3초 동안 꾹 누르고 있어야 함 (touchHeld = ✋ 버튼 꾹)
 cvs.addEventListener('mousedown', () => { dragging = true; mouseHeld = true; if (state === 'play' && !locked) lock(); });
-cvs.addEventListener('touchstart', () => { touchHeld = true; }, { passive: true });
-addEventListener('touchend', () => { touchHeld = false; });
 addEventListener('mouseup', () => { dragging = false; mouseHeld = false; });
+
+// ---------- 모바일 터치 조작 ----------
+// 왼쪽 조이스틱 = 이동, 화면 드래그 = 카메라 회전, 두 손가락 = 줌, ✋ = E (꾹 누르면 달걀 들기)
+const IS_TOUCH = matchMedia('(pointer: coarse)').matches || navigator.maxTouchPoints > 0;
+const joy = { id: null, x: 0, y: 0, cx: 0, cy: 0 };     // x: 오른쪽 +, y: 앞 +
+const camPts = new Map();                               // 화면을 드래그 중인 손가락들
+let pinchD = 0;
+function enableTouch() { document.body.classList.add('touch'); $('touchUI').classList.remove('hidden'); }
+if (IS_TOUCH) enableTouch();
+addEventListener('pointerdown', e => { if (e.pointerType === 'touch') enableTouch(); });
+
+const capture = (el, e) => { try { el.setPointerCapture(e.pointerId); } catch (err) {} };
+const joyEl = $('joy'), joyKnob = $('joyKnob'), JOY_R = 50;
+function moveJoy(e) {
+  let dx = e.clientX - joy.cx, dy = e.clientY - joy.cy;
+  const d = Math.hypot(dx, dy); if (d > JOY_R) { dx *= JOY_R / d; dy *= JOY_R / d; }
+  joy.x = dx / JOY_R; joy.y = -dy / JOY_R;
+  joyKnob.style.transform = `translate(${dx}px, ${dy}px)`;
+}
+function endJoy() { joy.id = null; joy.x = joy.y = 0; joyKnob.style.transform = ''; }
+joyEl.addEventListener('pointerdown', e => {
+  e.preventDefault(); capture(joyEl, e);
+  const r = joyEl.getBoundingClientRect(); joy.id = e.pointerId; joy.cx = r.left + r.width / 2; joy.cy = r.top + r.height / 2; moveJoy(e);
+});
+joyEl.addEventListener('pointermove', e => { if (e.pointerId === joy.id) moveJoy(e); });
+['pointerup', 'pointercancel', 'lostpointercapture'].forEach(t => joyEl.addEventListener(t, e => { if (e.pointerId === joy.id) endJoy(); }));
+
+cvs.addEventListener('pointerdown', e => {
+  if (e.pointerType !== 'touch') return;
+  e.preventDefault(); camPts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (camPts.size === 2) { const [a, b] = [...camPts.values()]; pinchD = Math.hypot(a.x - b.x, a.y - b.y); }
+});
+cvs.addEventListener('pointermove', e => {
+  const p = camPts.get(e.pointerId); if (!p) return;
+  if (camPts.size === 1 && state === 'play') {
+    camYaw -= (e.clientX - p.x) * 0.006;
+    camPitch = Math.max(-0.15, Math.min(1.25, camPitch + (e.clientY - p.y) * 0.004));
+  }
+  p.x = e.clientX; p.y = e.clientY;
+  if (camPts.size === 2) {
+    const [a, b] = [...camPts.values()], d = Math.hypot(a.x - b.x, a.y - b.y);
+    camDist = Math.max(4, Math.min(18, camDist - (d - pinchD) * 0.03)); pinchD = d;
+  }
+});
+['pointerup', 'pointercancel'].forEach(t => cvs.addEventListener(t, e => camPts.delete(e.pointerId)));
+
+// 버튼: 누르는 순간 바로 반응 (✋는 누르고 있는 동안 touchHeld)
+function touchBtn(id, down, up) {
+  const el = $(id);
+  el.addEventListener('pointerdown', e => { e.preventDefault(); capture(el, e); el.classList.add('on'); down(); });
+  ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(t => el.addEventListener(t, () => { el.classList.remove('on'); if (up) up(); }));
+}
+touchBtn('tAct', () => { touchHeld = true; actionE(); }, () => { touchHeld = false; });
+touchBtn('tJump', jumpPress);
+touchBtn('tPause', () => { if (state === 'play') pauseGame(); });
 addEventListener('mousemove', e => {
   if (state !== 'play') return;
   if (locked || dragging) {
@@ -1448,10 +1544,10 @@ function dropEgg() {
 }
 
 function updatePlayer(dt) {
-  const fwd = (keys.KeyW || keys.ArrowUp ? 1 : 0) - (keys.KeyS || keys.ArrowDown ? 1 : 0);
-  const side = (keys.KeyD || keys.ArrowRight ? 1 : 0) - (keys.KeyA || keys.ArrowLeft ? 1 : 0);
+  const fwd = (keys.KeyW || keys.ArrowUp ? 1 : 0) - (keys.KeyS || keys.ArrowDown ? 1 : 0) + joy.y;
+  const side = (keys.KeyD || keys.ArrowRight ? 1 : 0) - (keys.KeyA || keys.ArrowLeft ? 1 : 0) + joy.x;
   let wx = -Math.sin(camYaw) * fwd + Math.cos(camYaw) * side, wz = -Math.cos(camYaw) * fwd - Math.sin(camYaw) * side;
-  const wl = Math.hypot(wx, wz); if (wl > 0) { wx /= wl; wz /= wl; }
+  const wl = Math.hypot(wx, wz); if (wl > 1) { wx /= wl; wz /= wl; }   // 조이스틱은 살짝 밀면 천천히
   const acc = Math.min(1, dt * (P.onGround ? 14 : 5));
   P.vel.x += (wx * RUN - P.vel.x) * acc; P.vel.z += (wz * RUN - P.vel.z) * acc;
 
@@ -1660,6 +1756,7 @@ function titleScreen() {
       🔹 낮 <b>5분</b>이 지나면 <b>밤 10초</b> — 방벽이 오비 입구를 막고, 달걀이 <b>3배 빨리</b> 자라요. 아침이 되면 달걀이 새로 생겨요.<br>
       🔹 부화한 동물이 매초 돈을 벌어요. 게임을 꺼도 달걀은 계속 자라요!
     </div>
+    <p style="font-size:13px;color:#9aa">📱 모바일: 왼쪽 조이스틱 이동 · 화면 드래그 카메라 · 두 손가락 줌 · ⤒ 점프 · ✋ E(꾹 누르면 달걀 들기) · 🪽 날기 · ⏸ 일시정지</p>
     <p style="font-size:13px;color:#9aa">WASD 이동 · Space 점프 · Shift+Space·🪽버튼 날기 · E·클릭 꾹 달걀 훔치기 · E 상점/펫 들기 · R 달걀 내리기 · M·0 인벤토리 · 1~9 핫바 · 휠 줌 · ESC 일시정지</p>
     <button class="btn" onclick="startGame()">게임 시작</button>
     <button class="btn gray" onclick="codexScreen()">동물 도감</button>
@@ -1689,7 +1786,11 @@ function codexScreen() {
 function startGame() {
   goFarm(); P.invuln = 0;
   hideOverlay(); $('hud').classList.remove('hidden'); state = 'play'; lock();
+  if (IS_TOUCH) {   // 모바일: 전체 화면으로 (지원하는 브라우저만)
+    try { const r = document.documentElement.requestFullscreen && document.documentElement.requestFullscreen(); if (r && r.catch) r.catch(() => {}); } catch (e) {}
+  }
   if (offlineEarned >= 1) { toast(`없는 동안 농장이 ${fmt(offlineEarned)} 💰을 벌었어요!`, 3); offlineEarned = 0; }
+  else if (IS_TOUCH && innerHeight > innerWidth) toast('📱 휴대폰을 가로로 돌리면 더 편해요!', 3);
   else toast('➡ 오비를 깨고 둥지의 달걀을 훔쳐 오자!', 2.5);
   buildBar();
 }
