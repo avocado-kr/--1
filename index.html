@@ -104,22 +104,28 @@
   /* 게임 전체 화면 (휴대폰을 세로로 들면 통째로 90° 돌려서 항상 가로) */
   #app { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; overflow: hidden; transform-origin: 0 0; }
   #touchUI { position: absolute; inset: 0; pointer-events: none; }
-  #joy { position: absolute; left: 28px; bottom: 84px; width: 124px; height: 124px; border-radius: 50%; pointer-events: auto; touch-action: none;
+  #joy { position: absolute; left: 14px; bottom: 14px; width: 155px; height: 155px; border-radius: 50%; pointer-events: auto; touch-action: none;
     background: rgba(255,255,255,.12); border: 2px solid rgba(255,255,255,.35); }
-  #joyKnob { position: absolute; left: 50%; top: 50%; width: 56px; height: 56px; margin: -28px 0 0 -28px; border-radius: 50%; background: rgba(255,255,255,.6); pointer-events: none; }
+  #joyKnob { position: absolute; left: 50%; top: 50%; width: 70px; height: 70px; margin: -35px 0 0 -35px; border-radius: 50%; background: rgba(255,255,255,.6); pointer-events: none; }
   .tBtn { position: absolute; pointer-events: auto; touch-action: none; width: 78px; height: 78px; border-radius: 50%; border: 3px solid rgba(255,255,255,.7);
     background: rgba(0,0,0,.4); color: #fff; font-size: 28px; font-weight: bold; font-family: inherit; line-height: 1;
     display: flex; flex-direction: column; align-items: center; justify-content: center; -webkit-user-select: none; }
   .tBtn small { font-size: 11px; margin-top: 3px; }
   .tBtn.on { background: rgba(255,204,51,.55); }
-  #tJump { right: 24px; bottom: 96px; }
-  #tAct { right: 116px; bottom: 96px; width: 70px; height: 70px; background: rgba(255,150,40,.45); }
-  #tPause { left: 28px; bottom: 222px; width: 46px; height: 46px; font-size: 18px; }
-  body.touch #btnFly { top: auto; bottom: 186px; right: 24px; width: 78px; height: 78px; transform: none; }
+  #tJump { right: 14px; bottom: 14px; width: 98px; height: 98px; font-size: 35px; }
+  #tJump small { font-size: 13px; }
+  #tAct { right: 124px; bottom: 74px; width: 70px; height: 70px; background: rgba(255,150,40,.45); }
+  #tPause { left: 14px; bottom: 182px; width: 46px; height: 46px; font-size: 18px; }
+  body.touch #btnFly { top: auto; bottom: 124px; right: 14px; width: 78px; height: 78px; transform: none; }
   body.touch #btnFly:active { transform: translateY(3px); }
-  body.touch #btnDrop { right: 116px; bottom: 180px; }
+  body.touch #btnDrop { right: 124px; bottom: 156px; }
   body.touch #prompt { font-size: 15px; bottom: 96px; max-width: calc(100% - 360px); white-space: normal; padding: 8px 12px; }
   body.touch #flyBar { bottom: 190px; }
+  /* 휴대폰: 아래 양쪽 구석에 조이스틱·점프가 들어가게 핫바를 조금 작게 */
+  body.touch .hotCell { width: min(42px, calc(5.2 * var(--vw, 1vw))); height: min(42px, calc(5.2 * var(--vw, 1vw))); }
+  body.touch .hotCell .ico, body.touch #bagBtn { font-size: min(22px, calc(3.2 * var(--vw, 1vw))); }
+  body.touch .hotCell .egg { width: 20px; height: 26px; }
+  body.touch #hotName { bottom: 62px; }
     body.touch.short #hudL, body.touch.short #hudR { padding: 6px 10px; min-width: 0; }
     body.touch.short #hStage { font-size: 14px; } body.touch.short #hStatus, body.touch.short #hTime { font-size: 12px; }
     body.touch.short #hMoney { font-size: 18px; } body.touch.short #hIncome, body.touch.short #hFarm, body.touch.short #hFly, body.touch.short #hpWrap { font-size: 11px; }
@@ -720,7 +726,7 @@ function makeAnimal(type, targetH) {
 //  화면 방향: 휴대폰은 항상 가로 (세로로 들면 게임 전체를 90° 돌려서 보여 줌), 컴퓨터는 그대로
 // =====================================================================
 const IS_TOUCH = matchMedia('(pointer: coarse)').matches || navigator.maxTouchPoints > 0 || /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
-const GAME_VER = '2026-10-29d';   // 타이틀 화면 아래에 표시 (최신 버전인지 확인용)
+const GAME_VER = '2026-10-29e';   // 타이틀 화면 아래에 표시 (최신 버전인지 확인용)
 let ROT = false, VW = innerWidth, VH = innerHeight;   // VW × VH = 게임 화면 크기 (항상 가로가 더 김)
 function layout() {
   ROT = IS_TOUCH && innerHeight > innerWidth;
@@ -1389,7 +1395,7 @@ if (IS_TOUCH) enableTouch();
 addEventListener('pointerdown', e => { if (e.pointerType === 'touch') enableTouch(); });
 
 const capture = (el, e) => { try { el.setPointerCapture(e.pointerId); } catch (err) {} };
-const joyEl = $('joy'), joyKnob = $('joyKnob'), JOY_R = 50;
+const joyEl = $('joy'), joyKnob = $('joyKnob'), JOY_R = 62;
 function moveJoy(e) {
   let [dx, dy] = toApp(e.clientX - joy.cx, e.clientY - joy.cy);
   const d = Math.hypot(dx, dy); if (d > JOY_R) { dx *= JOY_R / d; dy *= JOY_R / d; }
