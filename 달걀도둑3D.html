@@ -2090,7 +2090,7 @@ function updateOthers(dt) {
 const NET_KEY = 'eggthief_net';
 function netPrefs() {
   let p = {}; try { p = JSON.parse(localStorage.getItem(NET_KEY)) || {}; } catch (e) {}
-  return { name: p.name || '', addr: p.addr || (location.protocol.startsWith('http') ? location.host : 'localhost:8080') };
+  return { name: p.name || '', addr: p.addr || (location.protocol.startsWith('http') && !location.host.endsWith('github.io') ? location.host : 'localhost:8080') };
 }
 function onlineStart() {
   const name = ($('netName').value || '').trim().slice(0, 10), addr = ($('netAddr').value || '').trim();
