@@ -142,6 +142,7 @@
   .btn:active { transform: translateY(3px); box-shadow: 0 2px 0 #b8860b; }
   .netBox { display: flex; flex-wrap: wrap; gap: 6px 14px; justify-content: center; align-items: center; margin-top: 10px; font-size: 15px; }
   #netStatus { width: 100%; color: #9dff9d; font-weight: bold; }
+  #nameMsg { width: 100%; font-size: 13px; color: #9aa; min-height: 18px; }
   .netBox input { margin-left: 6px; padding: 8px 10px; font-size: 16px; border-radius: 10px; border: 2px solid rgba(255,255,255,.25); background: rgba(0,0,0,.3); color: #fff; font-family: inherit; width: 150px; }
   .btn.gray { background: #8d93b5; color: #1b1d30; box-shadow: 0 5px 0 #5a5f80; }
 
@@ -719,7 +720,7 @@ function makeAnimal(type, targetH) {
 //  화면 방향: 휴대폰은 항상 가로 (세로로 들면 게임 전체를 90° 돌려서 보여 줌), 컴퓨터는 그대로
 // =====================================================================
 const IS_TOUCH = matchMedia('(pointer: coarse)').matches || navigator.maxTouchPoints > 0 || /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
-const GAME_VER = '2026-10-29c';   // 타이틀 화면 아래에 표시 (최신 버전인지 확인용)
+const GAME_VER = '2026-10-29d';   // 타이틀 화면 아래에 표시 (최신 버전인지 확인용)
 let ROT = false, VW = innerWidth, VH = innerHeight;   // VW × VH = 게임 화면 크기 (항상 가로가 더 김)
 function layout() {
   ROT = IS_TOUCH && innerHeight > innerWidth;
@@ -1706,6 +1707,7 @@ function updatePlayer(dt) {
   const up = P.held || P.pick;
   pm.arms[0].rotation.x = up ? Math.PI : -sw; pm.arms[1].rotation.x = up ? Math.PI : sw;
   pm.g.position.copy(P.pos); pm.g.rotation.y = P.face;
+  if (myTag) myTag.position.set(P.pos.x, P.pos.y + (up ? 3.0 : 2.4), P.pos.z);
   pm.g.visible = !((P.invuln > 0 || P.hurtT > 0) && Math.sin(T * 30) > 0);
   if (P.flying > 0) pm.wl.forEach((p, k) => { p.rotation.z = (k ? -1 : 1) * Math.sin(T * 14) * 0.5; });
 }
@@ -1805,8 +1807,9 @@ function titleScreen() {
     <p style="font-size:13px;color:#9aa">📱 모바일: 왼쪽 조이스틱 이동 · 화면 드래그 카메라 · 두 손가락 줌 · ⤒ 점프 · ✋ E(꾹 누르면 달걀 들기) · 🪽 날기 · ⏸ 일시정지</p>
     <p style="font-size:13px;color:#9aa">WASD 이동 · Space 점프 · Shift+Space·🪽버튼 날기 · E·클릭 꾹 달걀 훔치기 · E 상점/펫 들기 · R 달걀 내리기 · M·0 인벤토리 · 1~9 핫바 · 휠 줌 · ESC 일시정지</p>
     <div class="netBox"><div id="netStatus">${NET.status}</div>
-      <label>내 이름 <input id="netName" maxlength="10" value="${NET.name.replace(/[&"<>]/g, "")}" onchange="setNetName(this.value)"></label></div>
-    <button class="btn" onclick="setNetName($('netName').value);startGame()">게임 시작</button>
+      <label>닉네임 <input id="netName" maxlength="10" value="${NET.name.replace(/[&"<>]/g, "")}" oninput="setNetName(this.value)" placeholder="2~10글자"></label>
+      <div id="nameMsg">캐릭터 머리 위에 보여요 · 같은 이름, 욕설·비속어·19금 단어는 쓸 수 없어요</div></div>
+    <button class="btn" onclick="startWithName()">게임 시작</button>
     <button class="btn gray" onclick="codexScreen()">동물 도감</button>
     <button class="btn gray" id="resetBtn" onclick="resetData()">데이터 초기화</button>
     <p style="font-size:11px;color:#667;margin-top:10px">버전 ${GAME_VER}${IS_TOUCH ? ` · 📱 ${ROT ? "가로로 돌림" : "가로 화면"}` : ""}</p>`);
@@ -2103,14 +2106,13 @@ const PEN_ORDER = [2, 1, 3, 0, 4];   // 가운데 우리부터 채움
 const others = new Map();            // id → { name, pen, j, slots, model, tag, tgt, face, h, w, heldKey, anim, seen }
 const penOwner = k => { for (const o of others.values()) if (o.pen === k) return o; return null; };
 const NET = {
-  client: null, on: false, ready: false, id: 'u' + Math.random().toString(36).slice(2, 10), j: 0, name: netName(), sendT: 0, status: '🌐 연결 중...',
+  client: null, on: false, ready: false, id: 'u' + Math.random().toString(36).slice(2, 10), j: 0, name: '', sendT: 0, status: '🌐 연결 중...',
   send(m) {
     if (!this.on || !this.ready || !this.client) return;
     m.id = this.id;
     try { this.client.publish(NET_TOPIC, JSON.stringify(m)); } catch (e) {}
   },
   start() {
-    this.name = netName();
     if (typeof mqtt === 'undefined') { this.setStatus('🔌 온라인에 연결할 수 없어요 (혼자 하기)'); return; }
     this.tryBroker(0);
   },
@@ -2160,6 +2162,7 @@ function netClaimPen() {
   const pen = freePen();
   if (pen === undefined) { NET.leave('🚫 방이 가득 찼어요 (최대 5명) — 혼자 하기로 해요'); return; }
   setMyPen(pen);
+  fixDupName();
   NET.ready = true;
   NET.send({ t: 'hello' });
   NET.send({ t: 'pen', slots: SAVE.slots });
@@ -2185,8 +2188,9 @@ function netMsg(m) {
     }
     o.seen = Date.now();
     if (o.pen !== m.pen) { const old = o.pen; o.pen = m.pen; o.slots = []; recolor(o.model, PEN_COLORS[o.pen]); setTag(o); rebuildPen(old); rebuildPen(o.pen); drawPenSigns(); }
-    const nm = String(m.name || '').slice(0, 10);
+    const nm = safeName(m.name);
     if (nm && nm !== o.name) { o.name = nm; setTag(o); drawPenSigns(); }
+    if (NET.ready && nameKey(o.name) === nameKey(NET.name) && (o.j < NET.j || (o.j === NET.j && o.id < NET.id))) fixDupName();
     applyState(o, m);
     // 같은 우리를 두 사람이 고름 → 늦게 들어온 사람이 다른 빈 우리로 옮김
     if (NET.ready && m.pen === myPen && (m.j < NET.j || (m.j === NET.j && m.id < NET.id))) {
@@ -2226,7 +2230,7 @@ function recolor(model, color) {
   const c = new THREE.Color(color);
   model.body[0].color.copy(c); model.body[1].color.copy(c).offsetHSL(0, 0, 0.1); model.body[2].color.copy(c).offsetHSL(0, 0, -0.15);
 }
-function recolorPlayer() { recolor(playerModel, PEN_COLORS[myPen]); }
+function recolorPlayer() { recolor(playerModel, PEN_COLORS[myPen]); setMyTag(); }
 function setTag(o) {
   if (o.tag) scene.remove(o.tag);
   const css = '#' + new THREE.Color(PEN_COLORS[o.pen]).offsetHSL(0, 0, 0.15).getHexString();
@@ -2235,7 +2239,7 @@ function setTag(o) {
 }
 function addOther(m) {
   const model = makePerson(PEN_COLORS[m.pen]);
-  const o = { id: m.id, name: String(m.name || '플레이어').slice(0, 10), pen: m.pen, j: +m.j || 0, slots: [], model, tag: null,
+  const o = { id: m.id, name: safeName(m.name), pen: m.pen, j: +m.j || 0, slots: [], model, tag: null,
     tgt: new THREE.Vector3(m.x, m.y, m.z), face: 0, h: -1, w: 0, heldKey: -1, anim: 0, seen: Date.now() };
   model.g.position.copy(o.tgt);
   setTag(o);
@@ -2290,17 +2294,75 @@ function updateOthers(dt) {
     o.tag.position.set(g.position.x, g.position.y + (up ? 3.0 : 2.4), g.position.z);
   }
 }
+// ---------- 닉네임: 욕설·비속어·19금 단어 금지, 지금 접속한 사람과 같은 이름 금지 ----------
+// 띄어쓰기·특수문자·숫자를 끼워 넣어도(예: "씨1발", "f u c k") 걸러지게 글자만 남겨서 검사
+const BAD_KO = ['시발', '씨발', '씨빨', '시빨', '씨바', '시바', '씨팔', '시팔', '씨벌', '시벌', '십알', '십발', '십팔', '쌍놈', '썅', '씹', 'ㅅㅂ', 'ㅆㅂ', 'ㅅㅃ', 'ㅆㅃ',
+  '병신', '븅신', '빙신', '병쉰', 'ㅂㅅ', 'ㅄ', '새끼', '쌔끼', '새키', '색기', 'ㅅㄲ', '개새', '개색', '개세끼', '개같', '개년', '개놈', '좆', '존나', '졸라', 'ㅈㄴ',
+  '지랄', 'ㅈㄹ', '염병', '옘병', '미친놈', '미친년', '미친새', '미친x', '닥쳐', '꺼져', '엿먹', '니애미', '니미', '느금', '느그엄', '니엄마', '애미', '애비', '엠창', '앰창', 'ㄴㄱㅁ',
+  '등신', '또라이', '돌아이', '찐따', '장애인', '애자', '한남', '김치녀', '보슬', '틀딱', '급식충', '맘충', '충새',
+  '섹스', '쎅스', '섹시', '야동', '야사', '자위', '딸딸', '보지', '자지', '잠지', '보짓', '젖꼭', '성기', '성교', '정액', '강간', '윤간', '창녀', '창놈', '걸레', '매춘', '원조교', '몸캠', '야한', '음란', '변태', '텐가', '콘돔'];
+const BAD_EN = ['fuck', 'fuk', 'fck', 'phuck', 'shit', 'bitch', 'biatch', 'cunt', 'dick', 'cock', 'pussy', 'penis', 'vagina', 'porn', 'sex', 'slut', 'whore', 'rape',
+  'nigg', 'nigga', 'fag', 'retard', 'asshole', 'bastard', 'motherf', 'boob', 'tits', 'horny', 'nude', 'naked', 'xxx', 'hentai', 'milf', 'orgasm', 'jizz', 'wank', 'stfu', 'sibal', 'ssibal', 'shibal', 'byungsin'];
+function hasBadWord(s) {
+  s = String(s || '').toLowerCase();
+  const ko = s.replace(/[^가-힣ㄱ-ㅎㅏ-ㅣ]/g, '');                                          // 한글만
+  const en = s.replace(/[0@4]/g, c => ({ 0: 'o', '@': 'a', 4: 'a' })[c]).replace(/[1!|]/g, 'i').replace(/3/g, 'e').replace(/[5$]/g, 's').replace(/7/g, 't')
+    .replace(/[^a-z]/g, '');                                                                   // 영어만 (숫자 바꿔치기 되돌림)
+  return BAD_KO.some(w => ko.includes(w.replace(/[^가-힣ㄱ-ㅎㅏ-ㅣ]/g, '')) && w.replace(/[^가-힣ㄱ-ㅎㅏ-ㅣ]/g, '')) ||
+    BAD_EN.some(w => en.includes(w)) || /18(놈|년|새|색|노)|19금|ㅗ/.test(s.replace(/\s/g, ''));
+}
+const nameKey = s => String(s || '').toLowerCase().replace(/\s/g, '');
+const nameTaken = n => [...others.values()].some(o => nameKey(o.name) === nameKey(n));
+// 문제가 있으면 이유를, 괜찮으면 '' 를 돌려줌
+function checkName(n) {
+  n = String(n || '').trim();
+  if (n.length < 2) return '이름은 2글자 이상으로 해 주세요';
+  if (n.length > 10) return '이름은 10글자까지 쓸 수 있어요';
+  if (!/^[가-힣ㄱ-ㅎㅏ-ㅣa-zA-Z0-9 _\-.]+$/.test(n)) return '한글, 영어, 숫자만 쓸 수 있어요';
+  if (hasBadWord(n)) return '🚫 욕설·비속어·19금 단어는 이름에 쓸 수 없어요';
+  if (nameTaken(n)) return '이미 다른 사람이 쓰고 있는 이름이에요';
+  return '';
+}
+const safeName = n => { n = String(n || '').trim().slice(0, 10); return n && !hasBadWord(n) ? n : '플레이어'; };   // 다른 사람이 보낸 이름
+const autoName = () => { let n; do n = '농부 ' + Math.floor(100 + Math.random() * 900); while (nameTaken(n)); return n; };
 // 이름 (안 정하면 자동으로 "농부 123")
 const NAME_KEY = 'eggthief_name';
 function netName() {
   let n = ''; try { n = localStorage.getItem(NAME_KEY) || ''; } catch (e) {}
-  if (!n) { n = '농부 ' + Math.floor(100 + Math.random() * 900); try { localStorage.setItem(NAME_KEY, n); } catch (e) {} }
+  if (!n || hasBadWord(n)) { n = autoName(); try { localStorage.setItem(NAME_KEY, n); } catch (e) {} }
   return n;
 }
+function useName(n) {
+  NET.name = n; try { localStorage.setItem(NAME_KEY, n); } catch (e) {}
+  setMyTag(); drawPenSigns();
+}
+// 타이틀 화면에서 이름 정하기 → 문제가 있으면 이유를 보여 주고 false
 function setNetName(v) {
-  v = String(v || '').trim().slice(0, 10); if (!v) return;
-  NET.name = v; try { localStorage.setItem(NAME_KEY, v); } catch (e) {}
-  drawPenSigns();
+  v = String(v || '').trim();
+  const err = v === NET.name && !nameTaken(v) ? '' : checkName(v);
+  const el = $('nameMsg');
+  if (el) { el.textContent = err || (v ? `✅ "${v}" 사용할 수 있어요` : ''); el.style.color = err ? '#ff8080' : '#9dff9d'; }
+  if (err) return false;
+  useName(v); return true;
+}
+function startWithName() { if (setNetName($('netName').value)) startGame(); }
+// 같은 이름이 생기면(동시에 정한 경우) 늦게 들어온 내 이름에 숫자를 붙임
+function fixDupName() {
+  if (!nameTaken(NET.name)) return;
+  let n, i = 2;
+  const base = NET.name.slice(0, 8);
+  do n = base + (i++); while (nameTaken(n));
+  useName(n);
+  toast(`같은 이름이 있어서 내 이름이 "${n}"(으)로 바뀌었어요`, 3);
+}
+// 내 캐릭터 머리 위 닉네임
+let myTag = null;
+function setMyTag() {
+  if (myTag) scene.remove(myTag);
+  const css = '#' + new THREE.Color(PEN_COLORS[myPen]).offsetHSL(0, 0, 0.15).getHexString();
+  myTag = textSprite([{ text: NET.name, font: 'bold 52px Malgun Gothic', color: css, y: 64 }], 512, 128, 2.6, false);
+  myTag.position.set(P.pos.x, P.pos.y + 2.4, P.pos.z);
+  scene.add(myTag);
 }
 addEventListener('beforeunload', () => { if (NET.ready) NET.send({ t: 'bye' }); });
 
@@ -2311,6 +2373,7 @@ barrier.visible = night;
 respawnAllEggs();
 rebuildFarm();
 playerModel.g.position.copy(P.pos);
+NET.name = netName(); setMyTag();
 titleScreen();
 NET.start();   // 페이지를 열면 자동으로 온라인 방에 접속
 loop();
