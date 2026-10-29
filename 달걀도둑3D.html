@@ -103,8 +103,10 @@
   canvas { touch-action: none; }
   /* 게임 전체 화면 (휴대폰을 세로로 들면 통째로 90° 돌려서 항상 가로) */
   #app { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; overflow: hidden; transform-origin: 0 0; }
+  /* 핫바 가운데 높이 (핫바 아래 12px + 안쪽 여백 4px + 칸 크기의 절반) — 휴대폰 조이스틱·점프 버튼의 가운데를 여기에 맞춤 */
+  #app { --hotC: calc(16px + min(42px, calc(5.2 * var(--vw, 1vw))) / 2); }
   #touchUI { position: absolute; inset: 0; pointer-events: none; }
-  #joy { position: absolute; left: 14px; bottom: 14px; width: 155px; height: 155px; border-radius: 50%; pointer-events: auto; touch-action: none;
+  #joy { position: absolute; left: 14px; bottom: calc(var(--hotC) - 77.5px); width: 155px; height: 155px; border-radius: 50%; pointer-events: auto; touch-action: none;
     background: rgba(255,255,255,.12); border: 2px solid rgba(255,255,255,.35); }
   #joyKnob { position: absolute; left: 50%; top: 50%; width: 70px; height: 70px; margin: -35px 0 0 -35px; border-radius: 50%; background: rgba(255,255,255,.6); pointer-events: none; }
   .tBtn { position: absolute; pointer-events: auto; touch-action: none; width: 78px; height: 78px; border-radius: 50%; border: 3px solid rgba(255,255,255,.7);
@@ -112,11 +114,11 @@
     display: flex; flex-direction: column; align-items: center; justify-content: center; -webkit-user-select: none; }
   .tBtn small { font-size: 11px; margin-top: 3px; }
   .tBtn.on { background: rgba(255,204,51,.55); }
-  #tJump { right: 14px; bottom: 14px; width: 98px; height: 98px; font-size: 35px; }
+  #tJump { right: 14px; bottom: calc(var(--hotC) - 49px); width: 98px; height: 98px; font-size: 35px; }
   #tJump small { font-size: 13px; }
   #tAct { right: 124px; bottom: 74px; width: 70px; height: 70px; background: rgba(255,150,40,.45); }
-  #tPause { left: 14px; bottom: 182px; width: 46px; height: 46px; font-size: 18px; }
-  body.touch #btnFly { top: auto; bottom: 124px; right: 14px; width: 78px; height: 78px; transform: none; }
+  #tPause { left: 14px; bottom: calc(var(--hotC) + 90px); width: 46px; height: 46px; font-size: 18px; }
+  body.touch #btnFly { top: auto; bottom: calc(var(--hotC) + 60px); right: 14px; width: 78px; height: 78px; transform: none; }
   body.touch #btnFly:active { transform: translateY(3px); }
   body.touch #btnDrop { right: 124px; bottom: 156px; }
   body.touch #prompt { font-size: 15px; bottom: 96px; max-width: calc(100% - 360px); white-space: normal; padding: 8px 12px; }
@@ -726,7 +728,7 @@ function makeAnimal(type, targetH) {
 //  화면 방향: 휴대폰은 항상 가로 (세로로 들면 게임 전체를 90° 돌려서 보여 줌), 컴퓨터는 그대로
 // =====================================================================
 const IS_TOUCH = matchMedia('(pointer: coarse)').matches || navigator.maxTouchPoints > 0 || /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
-const GAME_VER = '2026-10-29e';   // 타이틀 화면 아래에 표시 (최신 버전인지 확인용)
+const GAME_VER = '2026-10-29f';   // 타이틀 화면 아래에 표시 (최신 버전인지 확인용)
 let ROT = false, VW = innerWidth, VH = innerHeight;   // VW × VH = 게임 화면 크기 (항상 가로가 더 김)
 function layout() {
   ROT = IS_TOUCH && innerHeight > innerWidth;
