@@ -131,6 +131,9 @@
   .btn { display: inline-block; margin: 14px 6px 0; padding: 12px 28px; font-size: 18px; font-weight: bold; border: none; border-radius: 14px; cursor: pointer; background: #ffcc33; color: #3a2a00; box-shadow: 0 5px 0 #b8860b; font-family: inherit; }
   .btn:hover { filter: brightness(1.08); }
   .btn:active { transform: translateY(3px); box-shadow: 0 2px 0 #b8860b; }
+  .netBox { display: flex; flex-wrap: wrap; gap: 6px 14px; justify-content: center; align-items: center; margin-top: 10px; font-size: 15px; }
+  #netStatus { width: 100%; color: #9dff9d; font-weight: bold; }
+  .netBox input { margin-left: 6px; padding: 8px 10px; font-size: 16px; border-radius: 10px; border: 2px solid rgba(255,255,255,.25); background: rgba(0,0,0,.3); color: #fff; font-family: inherit; width: 150px; }
   .btn.gray { background: #8d93b5; color: #1b1d30; box-shadow: 0 5px 0 #5a5f80; }
 
   .egg { width: 70px; height: 92px; border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%; display: inline-block; position: relative; }
@@ -169,6 +172,7 @@
 <div id="overlay"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/5.10.1/mqtt.min.js"></script>
 <script>
 // =====================================================================
 //  데이터
@@ -1051,7 +1055,7 @@ const penGroups = [], penVis = [], penSigns = [];
 let farmVis = [], slotMarks = [];
 for (let k = 0; k < PEN_N; k++) { const g = new THREE.Group(); world.add(g); penGroups.push(g); penVis.push([]); }
 const slotPos = (i, k = myPen) => new THREE.Vector3(-13.8 - Math.floor(i / 4) * 2.9, 0, penZ(k) - 5.25 + (i % 4) * 3.5);   // 우리 안 5 × 4 칸
-const penSlots = k => k === myPen ? SAVE.slots : [];
+const penSlots = k => k === myPen ? SAVE.slots : (penOwner(k) || {}).slots || [];
 // 빈 칸 표시 (내 우리만): 바닥 링 + 칸 번호
 const MARK_MAT = mat(0xfff3c0, { emissive: 0x665522, roughness: 0.5 }), MARK_ON = mat(0xffcc33, { emissive: 0xffaa00, emissiveIntensity: 0.9 });
 const markNoTex = [];
@@ -1101,11 +1105,13 @@ function rebuildPen(k) {
   if (own) farmVis = vis;
 }
 // 내 우리가 바뀜 → 다시 그림
-function rebuildFarm() { rebuildPen(myPen); }
+function rebuildFarm() { rebuildPen(myPen); NET.send({ t: 'pen', slots: SAVE.slots }); }   // 바뀐 내 우리를 친구들에게도 알림
+function rebuildAllPens() { for (let k = 0; k < PEN_N; k++) rebuildPen(k); drawPenSigns(); }
 function drawPenSigns() {
   penSigns.forEach((s, k) => {
-    if (k === myPen) s.draw('🐣 내 우리 (달걀 심는 곳)', '#ffe14a');
-    else s.draw('빈 우리', '#889');
+    const o = penOwner(k);
+    if (k === myPen) s.draw(`🐣 내 우리 (${NET.ready ? NET.name : '달걀 심는 곳'})`, '#ffe14a');
+    else s.draw(o ? `🐣 ${o.name}의 우리` : '빈 우리', o ? '#fff' : '#889');
   });
 }
 let farmTick = 0;
@@ -1303,6 +1309,7 @@ function animateSleepers(T) {
 // =====================================================================
 const keys = {};
 addEventListener('keydown', e => {
+  if (e.target && e.target.tagName === 'INPUT') return;   // 이름 입력 중
   keys[e.code] = true;
   if (e.code === 'Space') {
     e.preventDefault(); if (e.repeat) return;
@@ -1515,19 +1522,22 @@ let outlined = null;
 // 바닥에 내려놓은 달걀 (다른 단계에서 내려놓으면 그 자리에 남음, 밤이 되면 사라짐)
 const groundGroup = new THREE.Group(); world.add(groundGroup);
 let groundEggs = [];
-function spawnGroundEgg(h, x, y, z) {
+let groundSeq = 0;
+function spawnGroundEgg(h, x, y, z, id) {
+  if (!id) { id = `${NET.id}-${++groundSeq}`; NET.send({ t: 'gdrop', c: lastCycle, gid: id, lv: h.lv, g: h.g, i: h.e.idx, x, y, z }); }
   const pos = new THREE.Vector3(x, y + EGG_SCALE * 1.05, z);
   const m = makeEggMesh(h.lv, h.g); m.position.copy(pos); groundGroup.add(m);
   const outline = new THREE.Mesh(EGG_GEO, OUTLINE_MAT); outline.scale.setScalar(1.14); outline.visible = false; m.add(outline);
   const parts = [m];
   if (h.g === SECRET) { const a = halo(0xff4dd2, 2.2); a.position.copy(pos); groundGroup.add(a); parts.push(a); }
-  groundEggs.push({ ground: true, g: h.g, n: h.n, origin: h.e, pos, mesh: m, outline, parts, taken: false, ph: Math.random() * 6 });
+  groundEggs.push({ id, ground: true, g: h.g, n: h.n, origin: h.e, pos, mesh: m, outline, parts, taken: false, ph: Math.random() * 6 });
 }
 function clearGroundEggs() { groundGroup.clear(); groundEggs = []; }
 function removeGroundEgg(e) { e.parts.forEach(p => groundGroup.remove(p)); groundEggs = groundEggs.filter(x => x !== e); }
 function hideEgg(e) { e.taken = true; e.parts.forEach(p => p.visible = false); e.outline.visible = false; if (outlined === e) outlined = null; }
-function returnToNest(e) {
+function returnToNest(e, remote) {
   e.taken = false; e.parts.forEach(p => p.visible = true);
+  if (!remote) NET.send({ t: 'ret', c: lastCycle, lv: nests.findIndex(n => n.eggs.includes(e)), i: e.idx });
 }
 // 들고 있던 달걀을 놓음: 그 달걀의 단계 안이면 원래 둥지로, 다른 단계면 그 자리에 남음
 function releaseEgg(x, y, z) {
@@ -1701,7 +1711,8 @@ function takeEgg(n, e) {
   if (e.ground) {   // 바닥에 내려놨던 달걀을 다시 주움
     origin = e.origin;
     removeGroundEgg(e);
-  }
+    NET.send({ t: 'gtake', c: lastCycle, gid: e.id });
+  } else NET.send({ t: 'take', c: lastCycle, lv: n.lv, i: e.idx });
   P.held = { lv: n.lv, g: e.g, n, e: origin };
   stopFly();   // 달걀을 들면 날 수 없음
   const held = makeEggMesh(n.lv, e.g); playerModel.holder.add(held);
@@ -1754,11 +1765,14 @@ function titleScreen() {
       🔹 <b>🎒 인벤토리</b>(M키 / 가방 클릭, 100칸): 우리 안에서 펫·알 앞에서 <b>E</b>로 들기 → <b>💰 판매 상점</b>에서 팔기<br>
       🔹 달걀을 가져오면 <b>내 우리</b>에서 원하는 <b>빈 칸</b>(노란 동그라미) 위에 서서 <b>E</b> → 그 칸에 심어요. 핫바에서 고른 펫·알도 같은 방법으로 놓을 수 있어요.<br>
       🔹 낮 <b>5분</b>이 지나면 <b>밤 10초</b> — 방벽이 오비 입구를 막고, 달걀이 <b>3배 빨리</b> 자라요. 아침이 되면 달걀이 새로 생겨요.<br>
-      🔹 부화한 동물이 매초 돈을 벌어요. 게임을 꺼도 달걀은 계속 자라요!
+      🔹 부화한 동물이 매초 돈을 벌어요. 게임을 꺼도 달걀은 계속 자라요!<br>
+      🔹 <b>🌐 함께 하기</b>: 이 게임에 들어오기만 하면 자동으로 같은 방에 접속해요 (최대 5명, 1명당 우리 1개). 다른 사람의 모습과 우리가 보이고, 누가 훔친 달걀은 모두에게서 사라져요.
     </div>
     <p style="font-size:13px;color:#9aa">📱 모바일: 왼쪽 조이스틱 이동 · 화면 드래그 카메라 · 두 손가락 줌 · ⤒ 점프 · ✋ E(꾹 누르면 달걀 들기) · 🪽 날기 · ⏸ 일시정지</p>
     <p style="font-size:13px;color:#9aa">WASD 이동 · Space 점프 · Shift+Space·🪽버튼 날기 · E·클릭 꾹 달걀 훔치기 · E 상점/펫 들기 · R 달걀 내리기 · M·0 인벤토리 · 1~9 핫바 · 휠 줌 · ESC 일시정지</p>
-    <button class="btn" onclick="startGame()">게임 시작</button>
+    <div class="netBox"><div id="netStatus">${NET.status}</div>
+      <label>내 이름 <input id="netName" maxlength="10" value="${NET.name.replace(/[&"<>]/g, "")}" onchange="setNetName(this.value)"></label></div>
+    <button class="btn" onclick="setNetName($('netName').value);startGame()">게임 시작</button>
     <button class="btn gray" onclick="codexScreen()">동물 도감</button>
     <button class="btn gray" id="resetBtn" onclick="resetData()">데이터 초기화</button>`);
 }
@@ -1952,7 +1966,7 @@ function updateHUD() {
   $('hMoney').textContent = `💰 ${fmt(SAVE.money)}원`;
   $('hIncome').textContent = `초당 +${fmt(totalIncome())}원`;
   const used = SAVE.slots.filter(Boolean).length;
-  $('hFarm').textContent = `🏡 부화 칸 ${used}/${SLOTS}`;
+  $('hFarm').textContent = `🏡 부화 칸 ${used}/${SLOTS}` + (NET.ready ? ` · 🌐 ${netCount()}명` : '');
   renderHotbar();
   $('hpFill').style.width = (P.hp / MAX_HP * 100) + '%';
   $('hpFill').style.background = P.hp >= 70 ? '#3ccf4e' : P.hp >= 50 ? '#ffd23f' : '#ff3b3b';
@@ -2024,6 +2038,8 @@ function loop() {
     a.needsUpdate = true;
   }
   updateFarm(dt);
+  updateOthers(dt);
+  NET.tick(dt);
   SAVE.money += totalIncome() * dt;
   if (state === 'play') {
     updatePlayer(dt);
@@ -2038,6 +2054,218 @@ function loop() {
   renderer.render(scene, camera);
 }
 
+// =====================================================================
+//  온라인 (최대 5명) — 페이지를 열기만 하면 자동으로 같은 방에 들어감
+//  공개 MQTT 중계 서버를 통해 메시지를 주고받음 (서버 주소 입력 필요 없음)
+//  각자 돈·인벤토리·우리는 자기 브라우저에 저장되고, 위치·우리 모습·둥지 달걀 상태만 서로 공유
+// =====================================================================
+const NET_BROKERS = ['wss://broker.emqx.io:8084/mqtt', 'wss://broker.hivemq.com:8884/mqtt'];
+const NET_TOPIC = 'eggthief3d/avocado-kr--1/v1/room';
+const PEN_ORDER = [2, 1, 3, 0, 4];   // 가운데 우리부터 채움
+const others = new Map();            // id → { name, pen, j, slots, model, tag, tgt, face, h, w, heldKey, anim, seen }
+const penOwner = k => { for (const o of others.values()) if (o.pen === k) return o; return null; };
+const NET = {
+  client: null, on: false, ready: false, id: 'u' + Math.random().toString(36).slice(2, 10), j: 0, name: netName(), sendT: 0, status: '🌐 연결 중...',
+  send(m) {
+    if (!this.on || !this.ready || !this.client) return;
+    m.id = this.id;
+    try { this.client.publish(NET_TOPIC, JSON.stringify(m)); } catch (e) {}
+  },
+  start() {
+    this.name = netName();
+    if (typeof mqtt === 'undefined') { this.setStatus('🔌 온라인에 연결할 수 없어요 (혼자 하기)'); return; }
+    this.tryBroker(0);
+  },
+  tryBroker(bi) {
+    if (bi >= NET_BROKERS.length) { this.setStatus('🔌 온라인에 연결할 수 없어요 (혼자 하기)'); return; }
+    let c;
+    try {
+      c = mqtt.connect(NET_BROKERS[bi], { clientId: 'egt_' + this.id, connectTimeout: 6000, reconnectPeriod: 3000, keepalive: 30, clean: true,
+        will: { topic: NET_TOPIC, payload: JSON.stringify({ t: 'bye', id: this.id }), qos: 0, retain: false } });
+    } catch (e) { this.tryBroker(bi + 1); return; }
+    let connected = false;
+    const fail = setTimeout(() => { if (!connected) { c.end(true); this.tryBroker(bi + 1); } }, 7000);
+    c.on('connect', () => {
+      const first = !connected; connected = true; clearTimeout(fail);
+      this.client = c; this.on = true;
+      c.subscribe(NET_TOPIC);
+      if (first) { this.j = Date.now(); this.setStatus('🌐 방에 들어가는 중...'); setTimeout(netClaimPen, 1500); }
+      else if (this.ready) { this.send({ t: 'hello' }); netReadyStatus(); }   // 다시 연결됨
+    });
+    c.on('message', (topic, buf) => { let m; try { m = JSON.parse(buf.toString()); } catch (e) { return; } netMsg(m); });
+    c.on('offline', () => { if (connected && this.on) this.setStatus('🔌 연결이 끊겼어요... 다시 연결 중'); });
+  },
+  leave(msg) {   // 방이 가득 참 → 혼자 하기
+    this.ready = false; this.on = false;
+    try { this.client.end(true); } catch (e) {}
+    for (const id of [...others.keys()]) removeOther(id);
+    this.setStatus(msg);
+  },
+  tick(dt) {
+    if (!this.ready) return;
+    // 5초 동안 소식이 없는 플레이어는 나간 것으로 봄
+    const now = Date.now();
+    for (const o of [...others.values()]) if (now - o.seen > 5000) removeOther(o.id);
+    this.sendT -= dt; if (this.sendT > 0) return;
+    this.sendT = 0.15;
+    const w = P.flying > 0 && curWing();
+    this.send({ t: 'st', name: this.name, pen: myPen, j: this.j, x: +P.pos.x.toFixed(2), y: +P.pos.y.toFixed(2), z: +P.pos.z.toFixed(2), f: +P.face.toFixed(2),
+      h: P.held ? P.held.lv * 10 + P.held.g : -1, w: w ? w.color : 0 });
+  },
+  setStatus(s) { this.status = s; const el = $('netStatus'); if (el) el.textContent = s; },
+};
+const netCount = () => others.size + 1;
+function netReadyStatus() { NET.setStatus(`🌐 온라인: 지금 ${netCount()}명 접속 중 · 내 우리 ${myPen + 1}번`); }
+const freePen = () => { const used = new Set([...others.values()].map(o => o.pen)); return PEN_ORDER.find(k => !used.has(k)); };
+// 접속 후 1.5초 동안 다른 사람들을 확인하고 빈 우리를 차지
+function netClaimPen() {
+  const pen = freePen();
+  if (pen === undefined) { NET.leave('🚫 방이 가득 찼어요 (최대 5명) — 혼자 하기로 해요'); return; }
+  setMyPen(pen);
+  NET.ready = true;
+  NET.send({ t: 'hello' });
+  NET.send({ t: 'pen', slots: SAVE.slots });
+  netReadyStatus();
+  if (state !== 'title') toast(`🌐 온라인 접속! ${myPen + 1}번 우리가 내 우리예요\n(지금 ${netCount()}명)`, 3);
+}
+function setMyPen(k) {
+  if (k !== myPen) {
+    myPen = k; recolorPlayer();
+    if (state === 'title' || (P.pos.x < 0 && !P.held)) { P.pos.copy(farmSpawn()); P.vel.set(0, 0, 0); }
+  }
+  rebuildAllPens();
+}
+function netMsg(m) {
+  if (!m || typeof m.id !== 'string' || m.id === NET.id || typeof m.t !== 'string') return;
+  let o = others.get(m.id);
+  if (m.t === 'st') {
+    if (!(m.pen >= 0 && m.pen < PEN_N) || !isFinite(m.x) || !isFinite(m.y) || !isFinite(m.z)) return;
+    if (!o) {
+      if (others.size >= PEN_N - 1) return;
+      o = addOther(m);
+      if (NET.ready) { rebuildPen(o.pen); drawPenSigns(); toast(`👋 ${o.name}님이 들어왔어요`, 2); netReadyStatus(); }
+    }
+    o.seen = Date.now();
+    if (o.pen !== m.pen) { const old = o.pen; o.pen = m.pen; o.slots = []; recolor(o.model, PEN_COLORS[o.pen]); setTag(o); rebuildPen(old); rebuildPen(o.pen); drawPenSigns(); }
+    const nm = String(m.name || '').slice(0, 10);
+    if (nm && nm !== o.name) { o.name = nm; setTag(o); drawPenSigns(); }
+    applyState(o, m);
+    // 같은 우리를 두 사람이 고름 → 늦게 들어온 사람이 다른 빈 우리로 옮김
+    if (NET.ready && m.pen === myPen && (m.j < NET.j || (m.j === NET.j && m.id < NET.id))) {
+      const free = freePen();
+      if (free === undefined) NET.leave('🚫 방이 가득 찼어요 (최대 5명) — 혼자 하기로 해요');
+      else { setMyPen(free); NET.send({ t: 'pen', slots: SAVE.slots }); netReadyStatus(); }
+    }
+    return;
+  }
+  if (!NET.ready) return;
+  if (m.t === 'bye') { if (o) { toast(`👋 ${o.name}님이 나갔어요`, 2); removeOther(m.id); } }
+  else if (m.t === 'hello') {
+    // 새로 온 사람에게 내 우리 + (가장 먼저 온 사람이) 둥지 달걀 상태를 알려 줌
+    NET.send({ t: 'pen', slots: SAVE.slots });
+    const oldest = [...others.values()].every(x => x.id === m.id || x.j > NET.j);
+    if (oldest) NET.send({ t: 'world', to: m.id, c: lastCycle,
+      taken: nests.flatMap(n => n.eggs.filter(e => e.taken).map(e => ({ lv: n.lv, i: e.idx }))),
+      grounds: groundEggs.map(e => ({ gid: e.id, lv: e.n.lv, g: e.g, i: e.origin.idx, x: e.pos.x, y: e.pos.y - EGG_SCALE * 1.05, z: e.pos.z })) });
+  }
+  else if (m.t === 'world' && m.to === NET.id && m.c === lastCycle) {
+    (m.taken || []).forEach(t => applyTake({ c: m.c, lv: t.lv, i: t.i }));
+    (m.grounds || []).forEach(gd => applyGdrop(Object.assign({ c: m.c }, gd)));
+  }
+  else if (m.t === 'pen' && o) { o.slots = Array.isArray(m.slots) ? m.slots.slice(0, SLOTS) : []; rebuildPen(o.pen); }
+  else if (m.t === 'take') applyTake(m);
+  else if (m.t === 'ret') {
+    const e = m.c === lastCycle && nests[m.lv] && nests[m.lv].eggs[m.i];
+    if (e && e.taken && !(P.held && P.held.e === e)) returnToNest(e, true);
+  }
+  else if (m.t === 'gdrop') applyGdrop(m);
+  else if (m.t === 'gtake') {
+    const ge = groundEggs.find(x => x.id === m.gid);
+    if (ge) { hideEgg(ge); removeGroundEgg(ge); }
+  }
+}
+function recolor(model, color) {
+  const c = new THREE.Color(color);
+  model.body[0].color.copy(c); model.body[1].color.copy(c).offsetHSL(0, 0, 0.1); model.body[2].color.copy(c).offsetHSL(0, 0, -0.15);
+}
+function recolorPlayer() { recolor(playerModel, PEN_COLORS[myPen]); }
+function setTag(o) {
+  if (o.tag) scene.remove(o.tag);
+  const css = '#' + new THREE.Color(PEN_COLORS[o.pen]).offsetHSL(0, 0, 0.15).getHexString();
+  o.tag = textSprite([{ text: o.name, font: 'bold 52px Malgun Gothic', color: css, y: 64 }], 512, 128, 2.6, false);
+  scene.add(o.tag);
+}
+function addOther(m) {
+  const model = makePerson(PEN_COLORS[m.pen]);
+  const o = { id: m.id, name: String(m.name || '플레이어').slice(0, 10), pen: m.pen, j: +m.j || 0, slots: [], model, tag: null,
+    tgt: new THREE.Vector3(m.x, m.y, m.z), face: 0, h: -1, w: 0, heldKey: -1, anim: 0, seen: Date.now() };
+  model.g.position.copy(o.tgt);
+  setTag(o);
+  others.set(m.id, o);
+  return o;
+}
+function removeOther(id) {
+  const o = others.get(id); if (!o) return;
+  scene.remove(o.model.g); scene.remove(o.tag); others.delete(id);
+  rebuildPen(o.pen); drawPenSigns();
+  if (NET.ready) netReadyStatus();
+}
+function applyState(o, s) {
+  o.tgt.set(s.x, s.y, s.z); o.face = +s.f || 0; o.j = +s.j || o.j;
+  o.h = Number.isInteger(s.h) && s.h >= 0 && s.h < 30 ? s.h : -1; o.w = +s.w || 0;
+}
+function applyTake(m) {
+  if (m.c !== lastCycle) return;
+  const e = nests[m.lv] && nests[m.lv].eggs[m.i];
+  if (e && !e.taken) hideEgg(e);
+}
+function applyGdrop(m) {
+  if (m.c !== lastCycle || !m.gid || groundEggs.some(x => x.id === m.gid)) return;
+  const n = nests[m.lv]; if (!n || !n.eggs[m.i] || !EGGS[m.lv] || !EGGS[m.lv][m.g] || !isFinite(m.x)) return;
+  spawnGroundEgg({ lv: m.lv, g: m.g, n, e: n.eggs[m.i] }, m.x, m.y, m.z, m.gid);
+}
+// 다른 플레이어 움직임 (0.15초마다 오는 위치 사이를 부드럽게 이어 줌)
+function updateOthers(dt) {
+  for (const o of others.values()) {
+    const pm = o.model, g = pm.g;
+    const dx = o.tgt.x - g.position.x, dz = o.tgt.z - g.position.z, d = Math.hypot(dx, dz);
+    if (d > 12) g.position.copy(o.tgt);
+    else g.position.lerp(o.tgt, Math.min(1, dt * 10));
+    let diff = o.face - g.rotation.y; diff = Math.atan2(Math.sin(diff), Math.cos(diff));
+    g.rotation.y += diff * Math.min(1, dt * 12);
+    const moving = d > 0.05 && Math.abs(o.tgt.y - g.position.y) < 0.2;
+    o.anim += dt * (moving ? 11 : 0);
+    const sw = moving ? Math.sin(o.anim) * 0.9 : 0;
+    pm.legs[0].rotation.x = sw; pm.legs[1].rotation.x = -sw;
+    const up = o.h >= 0;
+    pm.arms[0].rotation.x = up ? Math.PI : -sw; pm.arms[1].rotation.x = up ? Math.PI : sw;
+    if (o.heldKey !== o.h) {   // 들고 있는 달걀 모양 바뀜
+      o.heldKey = o.h; pm.holder.clear();
+      if (o.h >= 0) {
+        const lv = Math.floor(o.h / 10), gr = o.h % 10;
+        if (EGGS[lv] && EGGS[lv][gr]) { pm.holder.add(makeEggMesh(lv, gr)); if (gr === SECRET) pm.holder.add(halo(0xff4dd2, 1.6)); }
+      }
+    }
+    if (pm.holder.children[0]) pm.holder.children[0].rotation.y += dt * 2;
+    pm.wingG.visible = !!o.w;
+    if (o.w) { pm.wingMat.color.setHex(o.w); pm.wl.forEach((p, k) => { p.rotation.z = (k ? -1 : 1) * Math.sin(T * 14) * 0.5; }); }
+    o.tag.position.set(g.position.x, g.position.y + (up ? 3.0 : 2.4), g.position.z);
+  }
+}
+// 이름 (안 정하면 자동으로 "농부 123")
+const NAME_KEY = 'eggthief_name';
+function netName() {
+  let n = ''; try { n = localStorage.getItem(NAME_KEY) || ''; } catch (e) {}
+  if (!n) { n = '농부 ' + Math.floor(100 + Math.random() * 900); try { localStorage.setItem(NAME_KEY, n); } catch (e) {} }
+  return n;
+}
+function setNetName(v) {
+  v = String(v || '').trim().slice(0, 10); if (!v) return;
+  NET.name = v; try { localStorage.setItem(NAME_KEY, v); } catch (e) {}
+  drawPenSigns();
+}
+addEventListener('beforeunload', () => { if (NET.ready) NET.send({ t: 'bye' }); });
+
 addEventListener('beforeunload', save);
 loadSave();
 buildWorld();
@@ -2046,6 +2274,7 @@ respawnAllEggs();
 rebuildFarm();
 playerModel.g.position.copy(P.pos);
 titleScreen();
+NET.start();   // 페이지를 열면 자동으로 온라인 방에 접속
 loop();
 </script>
 </body>
