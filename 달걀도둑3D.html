@@ -102,10 +102,6 @@
   .btn { display: inline-block; margin: 14px 6px 0; padding: 12px 28px; font-size: 18px; font-weight: bold; border: none; border-radius: 14px; cursor: pointer; background: #ffcc33; color: #3a2a00; box-shadow: 0 5px 0 #b8860b; font-family: inherit; }
   .btn:hover { filter: brightness(1.08); }
   .btn:active { transform: translateY(3px); box-shadow: 0 2px 0 #b8860b; }
-  .netBox { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; align-items: center; margin-top: 10px; }
-  .netBox input { padding: 10px 12px; font-size: 16px; border-radius: 10px; border: 2px solid rgba(255,255,255,.25); background: rgba(0,0,0,.3); color: #fff; font-family: inherit; width: 200px; max-width: 100%; }
-  .netBox .btn { margin: 0; }
-  #netStatus { width: 100%; min-height: 20px; font-size: 14px; color: #ffb080; white-space: pre-line; }
   .btn.gray { background: #8d93b5; color: #1b1d30; box-shadow: 0 5px 0 #5a5f80; }
 
   .egg { width: 70px; height: 92px; border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%; display: inline-block; position: relative; }
@@ -957,7 +953,7 @@ function buildScenery(rng) {
 function rollNest(n) {
   n.group.clear(); n.eggs = [];
   let secret = false;
-  // 같은 날(낮밤 주기)에는 모든 플레이어에게 똑같은 달걀이 나오게 시드 고정
+  // 같은 날(낮밤 주기)에는 다시 켜도 똑같은 달걀이 나오게 시드 고정
   const rand = rngFn(lastCycle * 7919 + n.lv * 101 + 13); rand();
   n.spots.forEach((sp, idx) => {
     const g = rollGrade(n.lv, rand);
@@ -1015,12 +1011,12 @@ function groundAt(x) {
 // =====================================================================
 //  농장: 부화기 & 동물
 // =====================================================================
-// 우리 5개: 내 우리는 SAVE.slots, 다른 우리는 온라인 친구가 보내 준 칸 정보로 그림
+// 우리 5개: 가운데(내 우리)만 쓰고, 나머지 4개는 빈 우리
 const penGroups = [], penVis = [], penSigns = [];
 let farmVis = [], slotMarks = [];
 for (let k = 0; k < PEN_N; k++) { const g = new THREE.Group(); world.add(g); penGroups.push(g); penVis.push([]); }
 const slotPos = (i, k = myPen) => new THREE.Vector3(-13.8 - Math.floor(i / 4) * 2.9, 0, penZ(k) - 5.25 + (i % 4) * 3.5);   // 우리 안 5 × 4 칸
-const penSlots = k => k === myPen ? SAVE.slots : (penOwner(k) || {}).slots || [];
+const penSlots = k => k === myPen ? SAVE.slots : [];
 // 빈 칸 표시 (내 우리만): 바닥 링 + 칸 번호
 const MARK_MAT = mat(0xfff3c0, { emissive: 0x665522, roughness: 0.5 }), MARK_ON = mat(0xffcc33, { emissive: 0xffaa00, emissiveIntensity: 0.9 });
 const markNoTex = [];
@@ -1069,14 +1065,12 @@ function rebuildPen(k) {
   penVis[k] = vis;
   if (own) farmVis = vis;
 }
-// 내 우리가 바뀜 → 다시 그리고 온라인 친구들에게 알림
-function rebuildFarm() { rebuildPen(myPen); NET.send({ t: 'pen', slots: SAVE.slots }); }
-function rebuildAllPens() { for (let k = 0; k < PEN_N; k++) rebuildPen(k); drawPenSigns(); }
+// 내 우리가 바뀜 → 다시 그림
+function rebuildFarm() { rebuildPen(myPen); }
 function drawPenSigns() {
   penSigns.forEach((s, k) => {
-    const o = penOwner(k);
-    if (k === myPen) s.draw(`🐣 내 우리 (${NET.on ? NET.name : '달걀 심는 곳'})`, '#ffe14a');
-    else s.draw(o ? `🐣 ${o.name}의 우리` : '빈 우리', o ? '#fff' : '#889');
+    if (k === myPen) s.draw('🐣 내 우리 (달걀 심는 곳)', '#ffe14a');
+    else s.draw('빈 우리', '#889');
   });
 }
 let farmTick = 0;
@@ -1138,7 +1132,7 @@ const P = { pos: farmSpawn(), vel: new THREE.Vector3(), onGround: false, ground:
   face: Math.PI / 2, anim: 0, held: null, invuln: 0, pick: null, flying: 0, flyMax: 1, canFly: true, hp: 100, hurtT: 0 };
 const MAX_HP = 100;
 
-// 네모 사람 모델 (나 + 온라인 친구들). 몸 색 = 우리 색
+// 네모 사람 모델. 몸 색 = 우리 색
 function makePerson(color) {
   const g = new THREE.Group();
   const c = new THREE.Color(color);
@@ -1168,11 +1162,6 @@ function makePerson(color) {
   return { g, legs, arms, holder, wingG, wingMat, wl, body: [gray, light, dark] };
 }
 const playerModel = makePerson(PEN_COLORS[myPen]);
-// 우리가 바뀌면(온라인 접속) 내 몸 색도 바꿈
-function recolorPlayer() {
-  const c = new THREE.Color(PEN_COLORS[myPen]);
-  playerModel.body[0].color.copy(c); playerModel.body[1].color.copy(c).offsetHSL(0, 0, 0.1); playerModel.body[2].color.copy(c).offsetHSL(0, 0, -0.15);
-}
 const curWing = () => WINGS.find(w => w.id === SAVE.equip && SAVE.wings.includes(w.id));
 // 날개는 게임 시간 기준 하루(낮+밤 1번)에 3번까지
 const FLY_PER_DAY = 3;
@@ -1279,7 +1268,6 @@ function animateSleepers(T) {
 // =====================================================================
 const keys = {};
 addEventListener('keydown', e => {
-  if (e.target && e.target.tagName === 'INPUT') return;   // 타이틀 화면 이름/주소 입력 중
   keys[e.code] = true;
   if (e.code === 'Space') {
     e.preventDefault(); if (e.repeat) return;
@@ -1431,22 +1419,19 @@ let outlined = null;
 // 바닥에 내려놓은 달걀 (다른 단계에서 내려놓으면 그 자리에 남음, 밤이 되면 사라짐)
 const groundGroup = new THREE.Group(); world.add(groundGroup);
 let groundEggs = [];
-let groundSeq = 0;
-function spawnGroundEgg(h, x, y, z, id) {
-  if (!id) { id = `${NET.id || 'me'}-${++groundSeq}`; NET.send({ t: 'gdrop', c: lastCycle, id, lv: h.lv, g: h.g, i: h.e.idx, x, y, z }); }
+function spawnGroundEgg(h, x, y, z) {
   const pos = new THREE.Vector3(x, y + EGG_SCALE * 1.05, z);
   const m = makeEggMesh(h.lv, h.g); m.position.copy(pos); groundGroup.add(m);
   const outline = new THREE.Mesh(EGG_GEO, OUTLINE_MAT); outline.scale.setScalar(1.14); outline.visible = false; m.add(outline);
   const parts = [m];
   if (h.g === SECRET) { const a = halo(0xff4dd2, 2.2); a.position.copy(pos); groundGroup.add(a); parts.push(a); }
-  groundEggs.push({ id, ground: true, g: h.g, n: h.n, origin: h.e, pos, mesh: m, outline, parts, taken: false, ph: Math.random() * 6 });
+  groundEggs.push({ ground: true, g: h.g, n: h.n, origin: h.e, pos, mesh: m, outline, parts, taken: false, ph: Math.random() * 6 });
 }
 function clearGroundEggs() { groundGroup.clear(); groundEggs = []; }
 function removeGroundEgg(e) { e.parts.forEach(p => groundGroup.remove(p)); groundEggs = groundEggs.filter(x => x !== e); }
 function hideEgg(e) { e.taken = true; e.parts.forEach(p => p.visible = false); e.outline.visible = false; if (outlined === e) outlined = null; }
-function returnToNest(e, remote) {
+function returnToNest(e) {
   e.taken = false; e.parts.forEach(p => p.visible = true);
-  if (!remote) NET.send({ t: 'ret', c: lastCycle, lv: nests.findIndex(n => n.eggs.includes(e)), i: e.idx });
 }
 // 들고 있던 달걀을 놓음: 그 달걀의 단계 안이면 원래 둥지로, 다른 단계면 그 자리에 남음
 function releaseEgg(x, y, z) {
@@ -1620,8 +1605,7 @@ function takeEgg(n, e) {
   if (e.ground) {   // 바닥에 내려놨던 달걀을 다시 주움
     origin = e.origin;
     removeGroundEgg(e);
-    NET.send({ t: 'gtake', c: lastCycle, id: e.id });
-  } else NET.send({ t: 'take', c: lastCycle, lv: n.lv, i: e.idx });
+  }
   P.held = { lv: n.lv, g: e.g, n, e: origin };
   stopFly();   // 달걀을 들면 날 수 없음
   const held = makeEggMesh(n.lv, e.g); playerModel.holder.add(held);
@@ -1673,20 +1657,11 @@ function titleScreen() {
       🔹 <b>🪽 날개 상점</b>: 흰색(10만원, 2초) · 검은(100만원, 2.5초) · 은색(300만원, 3초) · 금색(500만원, 4.5초) — <b>Shift+Space</b> 또는 <b>🪽 버튼</b>으로 비행!<br>
       🔹 <b>🎒 인벤토리</b>(M키 / 가방 클릭, 100칸): 우리 안에서 펫·알 앞에서 <b>E</b>로 들기 → <b>💰 판매 상점</b>에서 팔기<br>
       🔹 달걀을 가져오면 <b>내 우리</b>에서 원하는 <b>빈 칸</b>(노란 동그라미) 위에 서서 <b>E</b> → 그 칸에 심어요. 핫바에서 고른 펫·알도 같은 방법으로 놓을 수 있어요.<br>
-      🔹 <b>🌐 온라인</b>: 우리 5개 = 최대 5명. 친구가 <b>server.js</b>를 켜고, 모두 같은 서버 주소로 접속해요.<br>
       🔹 낮 <b>5분</b>이 지나면 <b>밤 10초</b> — 방벽이 오비 입구를 막고, 달걀이 <b>3배 빨리</b> 자라요. 아침이 되면 달걀이 새로 생겨요.<br>
       🔹 부화한 동물이 매초 돈을 벌어요. 게임을 꺼도 달걀은 계속 자라요!
     </div>
     <p style="font-size:13px;color:#9aa">WASD 이동 · Space 점프 · Shift+Space·🪽버튼 날기 · E·클릭 꾹 달걀 훔치기 · E 상점/펫 들기 · R 달걀 내리기 · M·0 인벤토리 · 1~9 핫바 · 휠 줌 · ESC 일시정지</p>
-    ${NET.on ? `<p style="color:#9dff9d">🌐 온라인 접속 중 — ${NET.name} · ${myPen + 1}번 우리 (${others.size + 1}/5명)</p>
-      <button class="btn" onclick="startGame()">게임 계속</button>`
-    : `<div class="netBox">
-        <input id="netName" maxlength="10" placeholder="내 이름" value="${netPrefs().name.replace(/"/g, '')}">
-        <input id="netAddr" placeholder="서버 주소 (예: 192.168.0.5:8080)" value="${netPrefs().addr.replace(/"/g, '')}">
-        <button class="btn" id="netBtn" onclick="onlineStart()">🌐 온라인 접속</button>
-        <div id="netStatus"></div>
-      </div>
-      <button class="btn gray" onclick="startGame()">혼자 하기</button>`}
+    <button class="btn" onclick="startGame()">게임 시작</button>
     <button class="btn gray" onclick="codexScreen()">동물 도감</button>
     <button class="btn gray" id="resetBtn" onclick="resetData()">데이터 초기화</button>`);
 }
@@ -1876,7 +1851,7 @@ function updateHUD() {
   $('hMoney').textContent = `💰 ${fmt(SAVE.money)}원`;
   $('hIncome').textContent = `초당 +${fmt(totalIncome())}원`;
   const used = SAVE.slots.filter(Boolean).length;
-  $('hFarm').textContent = `🏡 ${myPen + 1}번 우리 ${used}/${SLOTS}칸` + (NET.on ? ` · 🌐 ${others.size + 1}/5명` : '');
+  $('hFarm').textContent = `🏡 부화 칸 ${used}/${SLOTS}`;
   renderHotbar();
   $('hpFill').style.width = (P.hp / MAX_HP * 100) + '%';
   $('hpFill').style.background = P.hp >= 70 ? '#3ccf4e' : P.hp >= 50 ? '#ffd23f' : '#ff3b3b';
@@ -1948,8 +1923,6 @@ function loop() {
     a.needsUpdate = true;
   }
   updateFarm(dt);
-  updateOthers(dt);
-  NET.tick(dt);
   SAVE.money += totalIncome() * dt;
   if (state === 'play') {
     updatePlayer(dt);
@@ -1962,149 +1935,6 @@ function loop() {
   if (secretTimer > 0) { secretTimer -= dt; if (secretTimer <= 0) $('secretBanner').classList.add('hidden'); }
   updateCamera(dt);
   renderer.render(scene, camera);
-}
-
-// =====================================================================
-//  온라인 (최대 5명) — server.js 가 플레이어끼리 메시지를 전달해 줌
-//  각자 돈·인벤토리·우리는 자기 컴퓨터에 저장되고, 위치·우리 모습·둥지 달걀 상태만 서로 주고받음
-// =====================================================================
-const others = new Map();   // id → { name, pen, slots, model, tag, tgt, face, h, w, heldKey, anim }
-const penOwner = k => { for (const o of others.values()) if (o.pen === k) return o; return null; };
-const NET = {
-  ws: null, on: false, id: null, name: '', sendT: 0,
-  send(m) { if (this.on && this.ws && this.ws.readyState === 1) this.ws.send(JSON.stringify(m)); },
-  connect(addr, name, done) {
-    let url = addr.trim();
-    if (!/^wss?:\/\//.test(url)) url = (location.protocol === 'https:' ? 'wss://' : 'ws://') + url;
-    if (!/\/ws$/.test(url)) url = url.replace(/\/$/, '') + '/ws';
-    let ws, ok = false, finished = false;
-    const finish = err => { if (!finished) { finished = true; done(err); } };
-    try { ws = new WebSocket(url); } catch (e) { finish('주소가 올바르지 않아요'); return; }
-    this.ws = ws; this.name = name;
-    ws.onopen = () => ws.send(JSON.stringify({ t: 'hello', name }));
-    ws.onmessage = ev => {
-      let m; try { m = JSON.parse(ev.data); } catch (e) { return; }
-      if (m.t === 'full') { finish('방이 가득 찼어요 (최대 5명)'); ws.close(); return; }
-      if (m.t === 'welcome') { ok = true; this.on = true; this.id = m.id; netWelcome(m); finish(null); return; }
-      netMsg(m);
-    };
-    ws.onclose = () => { if (!ok) finish('서버에 연결할 수 없어요\n(server.js 가 켜져 있는지, 주소가 맞는지 확인해 주세요)'); else netLost(); };
-  },
-  tick(dt) {
-    if (!this.on) return;
-    this.sendT -= dt; if (this.sendT > 0) return;
-    this.sendT = 0.1;
-    const w = P.flying > 0 && curWing();
-    this.send({ t: 'st', x: +P.pos.x.toFixed(2), y: +P.pos.y.toFixed(2), z: +P.pos.z.toFixed(2), f: +P.face.toFixed(2),
-      h: P.held ? P.held.lv * 10 + P.held.g : -1, w: w ? w.color : 0 });
-  },
-};
-function addOther(p) {
-  const model = makePerson(PEN_COLORS[p.pen]);
-  const css = '#' + new THREE.Color(PEN_COLORS[p.pen]).offsetHSL(0, 0, 0.15).getHexString();
-  const tag = textSprite([{ text: p.name, font: 'bold 52px Malgun Gothic', color: css, y: 64 }], 512, 128, 2.6, false);
-  scene.add(tag);
-  const o = { id: p.id, name: p.name, pen: p.pen, slots: p.slots || [], model, tag, tgt: new THREE.Vector3(-9, 0, penZ(p.pen)), face: 0, h: -1, w: 0, heldKey: -1, anim: 0 };
-  model.g.position.copy(o.tgt);
-  if (p.st) applyState(o, p.st);
-  others.set(p.id, o);
-  return o;
-}
-function removeOther(id) {
-  const o = others.get(id); if (!o) return;
-  scene.remove(o.model.g); scene.remove(o.tag); others.delete(id);
-  rebuildPen(o.pen); drawPenSigns();
-}
-function applyState(o, s) { o.tgt.set(s.x, s.y, s.z); o.face = s.f; o.h = s.h; o.w = s.w; }
-function applyTake(m) {
-  if (m.c !== lastCycle) return;
-  const e = nests[m.lv] && nests[m.lv].eggs[m.i];
-  if (e && !e.taken) hideEgg(e);
-}
-function applyGdrop(m) {
-  if (m.c !== lastCycle || groundEggs.some(x => x.id === m.id)) return;
-  const n = nests[m.lv]; if (!n || !n.eggs[m.i]) return;
-  spawnGroundEgg({ lv: m.lv, g: m.g, n, e: n.eggs[m.i] }, m.x, m.y, m.z, m.id);
-}
-function netWelcome(m) {
-  for (const id of [...others.keys()]) removeOther(id);
-  myPen = m.pen; recolorPlayer();
-  m.players.forEach(addOther);
-  m.taken.forEach(applyTake);
-  m.grounds.forEach(applyGdrop);
-  rebuildFarm(); rebuildAllPens();
-}
-function netMsg(m) {
-  const o = others.get(m.id);
-  if (m.t === 'join') { addOther(m); rebuildPen(m.pen); drawPenSigns(); toast(`👋 ${m.name}님이 들어왔어요`, 2); }
-  else if (m.t === 'leave') { if (o) toast(`👋 ${o.name}님이 나갔어요`, 2); removeOther(m.id); }
-  else if (m.t === 'st' && o) applyState(o, m);
-  else if (m.t === 'pen' && o) { o.slots = m.slots || []; rebuildPen(o.pen); }
-  else if (m.t === 'take') applyTake(m);
-  else if (m.t === 'ret') {
-    const e = m.c === lastCycle && nests[m.lv] && nests[m.lv].eggs[m.i];
-    if (e && e.taken && !(P.held && P.held.e === e)) returnToNest(e, true);
-  }
-  else if (m.t === 'gdrop') applyGdrop(m);
-  else if (m.t === 'gtake') {
-    const ge = groundEggs.find(x => x.id === m.id);
-    if (ge) { hideEgg(ge); removeGroundEgg(ge); }
-  }
-}
-function netLost() {
-  NET.on = false; NET.id = null;
-  for (const id of [...others.keys()]) removeOther(id);
-  if (state !== 'title') toast('🔌 서버 연결이 끊겼어요\n혼자 하기로 계속해요', 3);
-}
-// 다른 플레이어 움직임 (0.1초마다 오는 위치 사이를 부드럽게 이어 줌)
-function updateOthers(dt) {
-  for (const o of others.values()) {
-    const pm = o.model, g = pm.g;
-    const dx = o.tgt.x - g.position.x, dz = o.tgt.z - g.position.z, d = Math.hypot(dx, dz);
-    if (d > 12) g.position.copy(o.tgt);
-    else g.position.lerp(o.tgt, Math.min(1, dt * 12));
-    let diff = o.face - g.rotation.y; diff = Math.atan2(Math.sin(diff), Math.cos(diff));
-    g.rotation.y += diff * Math.min(1, dt * 12);
-    const moving = d > 0.05 && Math.abs(o.tgt.y - g.position.y) < 0.2;
-    o.anim += dt * (moving ? 11 : 0);
-    const sw = moving ? Math.sin(o.anim) * 0.9 : 0;
-    pm.legs[0].rotation.x = sw; pm.legs[1].rotation.x = -sw;
-    const up = o.h >= 0;
-    pm.arms[0].rotation.x = up ? Math.PI : -sw; pm.arms[1].rotation.x = up ? Math.PI : sw;
-    if (o.heldKey !== o.h) {   // 들고 있는 달걀 모양 바뀜
-      o.heldKey = o.h; pm.holder.clear();
-      if (o.h >= 0) {
-        const lv = Math.floor(o.h / 10), gr = o.h % 10;
-        pm.holder.add(makeEggMesh(lv, gr));
-        if (gr === SECRET) pm.holder.add(halo(0xff4dd2, 1.6));
-      }
-    }
-    if (pm.holder.children[0]) pm.holder.children[0].rotation.y += dt * 2;
-    pm.wingG.visible = !!o.w;
-    if (o.w) { pm.wingMat.color.setHex(o.w); pm.wl.forEach((p, k) => { p.rotation.z = (k ? -1 : 1) * Math.sin(T * 14) * 0.5; }); }
-    o.tag.position.set(g.position.x, g.position.y + (up ? 3.0 : 2.4), g.position.z);
-  }
-}
-
-// 타이틀 화면의 이름 / 서버 주소
-const NET_KEY = 'eggthief_net';
-function netPrefs() {
-  let p = {}; try { p = JSON.parse(localStorage.getItem(NET_KEY)) || {}; } catch (e) {}
-  return { name: p.name || '', addr: p.addr || (location.protocol.startsWith('http') && !location.host.endsWith('github.io') ? location.host : 'localhost:8080') };
-}
-function onlineStart() {
-  const name = ($('netName').value || '').trim().slice(0, 10), addr = ($('netAddr').value || '').trim();
-  const st = $('netStatus');
-  if (!name) { st.textContent = '이름을 입력해 주세요'; return; }
-  if (!addr) { st.textContent = '서버 주소를 입력해 주세요'; return; }
-  try { localStorage.setItem(NET_KEY, JSON.stringify({ name, addr })); } catch (e) {}
-  st.textContent = '연결 중...'; $('netBtn').disabled = true;
-  NET.connect(addr, name, err => {
-    if (state !== 'title') return;
-    if (err) { st.textContent = err; $('netBtn').disabled = false; return; }
-    startGame();
-    toast(`🌐 온라인 접속! ${myPen + 1}번 우리가 내 우리예요\n(지금 ${others.size + 1}/5명)`, 3);
-  });
 }
 
 addEventListener('beforeunload', save);
