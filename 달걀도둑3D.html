@@ -46,14 +46,14 @@
   /* 아래 핫바 10칸: 1~9번 = 인벤토리 1~9번 칸, 10번 = 인벤토리 열기 */
   #hotbar { position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%); display: flex; gap: 4px; pointer-events: auto;
     background: rgba(0,0,0,.35); padding: 4px; border-radius: 14px; }
-  .hotCell { position: relative; width: min(52px, 8.4vw); height: min(52px, 8.4vw); border-radius: 10px; border: 2px solid rgba(255,255,255,.35);
+  .hotCell { position: relative; width: min(52px, calc(8.4 * var(--vw, 1vw))); height: min(52px, calc(8.4 * var(--vw, 1vw))); border-radius: 10px; border: 2px solid rgba(255,255,255,.35);
     background: rgba(0,0,0,.45); display: flex; align-items: center; justify-content: center; cursor: pointer; font-family: inherit; color: #fff; padding: 0; }
   .hotCell:hover { background: rgba(0,0,0,.65); }
   .hotCell.sel { border-color: #ffcc33; box-shadow: 0 0 8px #ffcc33; }
-  .hotCell .ico { font-size: min(28px, 5vw); }
-  .hotCell .egg { width: min(24px, 4.4vw); height: min(32px, 5.8vw); }
+  .hotCell .ico { font-size: min(28px, calc(5 * var(--vw, 1vw))); }
+  .hotCell .egg { width: min(24px, calc(4.4 * var(--vw, 1vw))); height: min(32px, calc(5.8 * var(--vw, 1vw))); }
   .hotNo { position: absolute; top: 1px; left: 4px; font-size: 10px; color: #ccd; }
-  #bagBtn { font-size: min(28px, 5vw); line-height: 1; border-color: rgba(255,255,255,.6); }
+  #bagBtn { font-size: min(28px, calc(5 * var(--vw, 1vw))); line-height: 1; border-color: rgba(255,255,255,.6); }
   #hotName { position: absolute; bottom: 78px; left: 50%; transform: translateX(-50%); font-size: 14px; font-weight: bold; background: rgba(0,0,0,.5);
     padding: 3px 12px; border-radius: 8px; white-space: nowrap; }
   .invCell.hot { border-color: rgba(120,200,255,.45); background: rgba(120,200,255,.08); }
@@ -92,6 +92,8 @@
 
   /* ---------- 모바일 터치 조작 (터치 화면에서만 보임) ---------- */
   canvas { touch-action: none; }
+  /* 게임 전체 화면 (휴대폰을 세로로 들면 통째로 90° 돌려서 항상 가로) */
+  #app { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; overflow: hidden; transform-origin: 0 0; }
   #touchUI { position: absolute; inset: 0; pointer-events: none; }
   #joy { position: absolute; left: 28px; bottom: 84px; width: 124px; height: 124px; border-radius: 50%; pointer-events: auto; touch-action: none;
     background: rgba(255,255,255,.12); border: 2px solid rgba(255,255,255,.35); }
@@ -109,13 +111,11 @@
   body.touch #btnDrop { right: 116px; bottom: 180px; }
   body.touch #prompt { font-size: 15px; bottom: 96px; max-width: calc(100% - 360px); white-space: normal; padding: 8px 12px; }
   body.touch #flyBar { bottom: 190px; }
-  @media (max-height: 500px) {
-    body.touch #hudL, body.touch #hudR { padding: 6px 10px; min-width: 0; }
-    body.touch #hStage { font-size: 14px; } body.touch #hStatus, body.touch #hTime { font-size: 12px; }
-    body.touch #hMoney { font-size: 18px; } body.touch #hIncome, body.touch #hFarm, body.touch #hFly, body.touch #hpWrap { font-size: 11px; }
-    body.touch #hpBar { width: 80px; }
-    body.touch #toast { font-size: 19px; }
-  }
+    body.touch.short #hudL, body.touch.short #hudR { padding: 6px 10px; min-width: 0; }
+    body.touch.short #hStage { font-size: 14px; } body.touch.short #hStatus, body.touch.short #hTime { font-size: 12px; }
+    body.touch.short #hMoney { font-size: 18px; } body.touch.short #hIncome, body.touch.short #hFarm, body.touch.short #hFly, body.touch.short #hpWrap { font-size: 11px; }
+    body.touch.short #hpBar { width: 80px; }
+    body.touch.short #toast { font-size: 19px; }
   .shop { display: grid; gap: 10px; margin-top: 14px; text-align: left; }
   .shop .item { display: flex; align-items: center; justify-content: space-between; gap: 10px; background: rgba(255,255,255,.07); border-radius: 12px; padding: 12px 14px; }
   .shop .item .btn { margin: 0; padding: 8px 16px; font-size: 15px; }
@@ -123,7 +123,7 @@
   .wingIcon { display: inline-block; width: 34px; height: 22px; border-radius: 50% 50% 10% 50%; margin-right: 8px; vertical-align: middle; border: 1px solid #888; }
 
   #overlay { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(10,10,25,.72); backdrop-filter: blur(3px); }
-  .panel { background: linear-gradient(160deg, #2b2f4a, #1b1d30); border: 2px solid rgba(255,255,255,.15); border-radius: 22px; padding: 30px 38px; text-align: center; max-width: 760px; width: calc(100% - 32px); max-height: 92vh; overflow: auto; box-shadow: 0 20px 60px rgba(0,0,0,.5); }
+  .panel { background: linear-gradient(160deg, #2b2f4a, #1b1d30); border: 2px solid rgba(255,255,255,.15); border-radius: 22px; padding: 30px 38px; text-align: center; max-width: 760px; width: calc(100% - 32px); max-height: calc(92 * var(--vh, 1vh)); overflow: auto; box-shadow: 0 20px 60px rgba(0,0,0,.5); }
   .panel h1 { font-size: 42px; margin-bottom: 6px; }
   .panel h2 { font-size: 30px; margin-bottom: 10px; }
   .panel p { line-height: 1.6; color: #d8dcf0; }
@@ -144,10 +144,11 @@
   .codex .unknown { background: #444 !important; box-shadow: none !important; }
   .codex .unknown::after { display: none; }
   .row-label { grid-column: 1 / -1; text-align: left; font-weight: bold; margin-top: 6px; }
-  @media (max-width: 600px) { .panel { padding: 20px 16px; } .panel h1 { font-size: 30px; } #hint { font-size: 11px; } .codex { grid-template-columns: repeat(3, 1fr); } }
+  body.narrow .panel { padding: 20px 16px; } body.narrow .panel h1 { font-size: 30px; } body.narrow .codex { grid-template-columns: repeat(3, 1fr); }
 </style>
 </head>
 <body>
+<div id="app">
 <div id="hud" class="hidden">
   <div id="vignette"></div>
   <div id="hudL"><div id="hStage"></div><div id="hStatus"></div><div id="hTime"></div>
@@ -170,6 +171,7 @@
   </div>
 </div>
 <div id="overlay"></div>
+</div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/5.10.1/mqtt.min.js"></script>
@@ -705,20 +707,39 @@ function makeAnimal(type, targetH) {
 }
 
 // =====================================================================
+//  화면 방향: 휴대폰은 항상 가로 (세로로 들면 게임 전체를 90° 돌려서 보여 줌), 컴퓨터는 그대로
+// =====================================================================
+const IS_TOUCH = matchMedia('(pointer: coarse)').matches || navigator.maxTouchPoints > 0;
+let ROT = false, VW = innerWidth, VH = innerHeight;   // VW × VH = 게임 화면 크기 (항상 가로가 더 김)
+function layout() {
+  ROT = IS_TOUCH && innerHeight > innerWidth;
+  VW = ROT ? innerHeight : innerWidth; VH = ROT ? innerWidth : innerHeight;
+  const app = $('app');
+  app.style.width = VW + 'px'; app.style.height = VH + 'px';
+  app.style.transform = ROT ? `translateX(${innerWidth}px) rotate(90deg)` : '';
+  app.style.setProperty('--vw', VW / 100 + 'px'); app.style.setProperty('--vh', VH / 100 + 'px');
+  document.body.classList.toggle('short', VH < 500);
+  document.body.classList.toggle('narrow', VW < 600);
+}
+// 화면에서 손가락이 움직인 양 → 돌아간 게임 화면 기준 움직인 양
+const toApp = (dx, dy) => ROT ? [dy, -dx] : [dx, dy];
+layout();
+
+// =====================================================================
 //  렌더러 / 씬
 // =====================================================================
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
-renderer.setSize(innerWidth, innerHeight);
+renderer.setSize(VW, VH);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-document.body.prepend(renderer.domElement);
+$('app').prepend(renderer.domElement);
 const cvs = renderer.domElement;
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(LEVELS[0].sky);
 scene.fog = new THREE.Fog(LEVELS[0].sky, 55, 210);
-const camera = new THREE.PerspectiveCamera(65, innerWidth / innerHeight, 0.1, 700);
+const camera = new THREE.PerspectiveCamera(65, VW / VH, 0.1, 700);
 const hemi = new THREE.HemisphereLight(0xffffff, 0x445533, 0.8); scene.add(hemi);
 const sun = new THREE.DirectionalLight(0xffffff, 0.9);
 sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048);
@@ -736,10 +757,13 @@ const stars = (() => {
   scene.add(p); return p;
 })();
 
-addEventListener('resize', () => {
-  camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
-  renderer.setSize(innerWidth, innerHeight);
-});
+function onResize() {
+  layout();
+  camera.aspect = VW / VH; camera.updateProjectionMatrix();
+  renderer.setSize(VW, VH);
+}
+addEventListener('resize', onResize);
+addEventListener('orientationchange', () => setTimeout(onResize, 250));   // 일부 휴대폰은 돌린 뒤 크기가 늦게 바뀜
 
 // =====================================================================
 //  월드: [농장] ← 출발 → 1단계 오비 → 둥지 → 2단계 → 둥지 → 3단계 → 둥지
@@ -1346,7 +1370,6 @@ addEventListener('mouseup', () => { dragging = false; mouseHeld = false; });
 
 // ---------- 모바일 터치 조작 ----------
 // 왼쪽 조이스틱 = 이동, 화면 드래그 = 카메라 회전, 두 손가락 = 줌, ✋ = E (꾹 누르면 달걀 들기)
-const IS_TOUCH = matchMedia('(pointer: coarse)').matches || navigator.maxTouchPoints > 0;
 const joy = { id: null, x: 0, y: 0, cx: 0, cy: 0 };     // x: 오른쪽 +, y: 앞 +
 const camPts = new Map();                               // 화면을 드래그 중인 손가락들
 let pinchD = 0;
@@ -1357,7 +1380,7 @@ addEventListener('pointerdown', e => { if (e.pointerType === 'touch') enableTouc
 const capture = (el, e) => { try { el.setPointerCapture(e.pointerId); } catch (err) {} };
 const joyEl = $('joy'), joyKnob = $('joyKnob'), JOY_R = 50;
 function moveJoy(e) {
-  let dx = e.clientX - joy.cx, dy = e.clientY - joy.cy;
+  let [dx, dy] = toApp(e.clientX - joy.cx, e.clientY - joy.cy);
   const d = Math.hypot(dx, dy); if (d > JOY_R) { dx *= JOY_R / d; dy *= JOY_R / d; }
   joy.x = dx / JOY_R; joy.y = -dy / JOY_R;
   joyKnob.style.transform = `translate(${dx}px, ${dy}px)`;
@@ -1378,8 +1401,9 @@ cvs.addEventListener('pointerdown', e => {
 cvs.addEventListener('pointermove', e => {
   const p = camPts.get(e.pointerId); if (!p) return;
   if (camPts.size === 1 && state === 'play') {
-    camYaw -= (e.clientX - p.x) * 0.006;
-    camPitch = Math.max(-0.15, Math.min(1.25, camPitch + (e.clientY - p.y) * 0.004));
+    const [dx, dy] = toApp(e.clientX - p.x, e.clientY - p.y);
+    camYaw -= dx * 0.006;
+    camPitch = Math.max(-0.15, Math.min(1.25, camPitch + dy * 0.004));
   }
   p.x = e.clientX; p.y = e.clientY;
   if (camPts.size === 2) {
@@ -1801,10 +1825,13 @@ function startGame() {
   goFarm(); P.invuln = 0;
   hideOverlay(); $('hud').classList.remove('hidden'); state = 'play'; lock();
   if (IS_TOUCH) {   // 모바일: 전체 화면으로 (지원하는 브라우저만)
-    try { const r = document.documentElement.requestFullscreen && document.documentElement.requestFullscreen(); if (r && r.catch) r.catch(() => {}); } catch (e) {}
+    // 전체 화면이 되면 안드로이드는 화면 자체를 가로로 고정 (안 되면 위의 90° 돌리기로 가로)
+    try {
+      const r = document.documentElement.requestFullscreen && document.documentElement.requestFullscreen();
+      if (r && r.then) r.then(() => { if (screen.orientation && screen.orientation.lock) return screen.orientation.lock('landscape'); }).catch(() => {});
+    } catch (e) {}
   }
   if (offlineEarned >= 1) { toast(`없는 동안 농장이 ${fmt(offlineEarned)} 💰을 벌었어요!`, 3); offlineEarned = 0; }
-  else if (IS_TOUCH && innerHeight > innerWidth) toast('📱 휴대폰을 가로로 돌리면 더 편해요!', 3);
   else toast('➡ 오비를 깨고 둥지의 달걀을 훔쳐 오자!', 2.5);
   buildBar();
 }
