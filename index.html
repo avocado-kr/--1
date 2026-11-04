@@ -2024,7 +2024,8 @@ function startGame() {
 function resume() { hideOverlay(); state = 'play'; lock(); }
 function openShop() { state = 'shop'; unlock(); renderShop(); }
 function renderShop() {
-  const items = WINGS.map(w => {
+  // 제작자 날개는 가진 사람에게만 보임 (못 가진 사람의 상점에는 안 나옴)
+  const items = WINGS.filter(w => w.id !== 'creator' || SAVE.wings.includes(w.id)).map(w => {
     const owned = SAVE.wings.includes(w.id), eq = SAVE.equip === w.id;
     const btn = w.gift && !owned ? '<button class="btn gray" disabled>선물 전용</button>' : !owned ? `<button class="btn" ${SAVE.money < w.price ? 'disabled' : ''} onclick="buyWing('${w.id}')">${fmt(w.price)}원</button>`
       : eq ? '<button class="btn gray" disabled>장착 중</button>' : `<button class="btn gray" onclick="equipWing('${w.id}')">장착</button>`;
