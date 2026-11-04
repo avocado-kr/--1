@@ -331,7 +331,7 @@ const SAVE_KEY = 'eggthief_farm_v3';
 const SLOTS = 18;
 let SAVE = null, offlineEarned = 0, betaNew = false, creatorNew = false;
 // true 동안 접속한 모든 사람이 제작자 날개를 받음. 지급을 멈추려면 false로 (이미 받은 사람은 계속 가짐)
-const CREATOR_GIFT_OPEN = true;
+const CREATOR_GIFT_OPEN = false;   // 2026-11-04 지급 종료
 function freshSave() { return { money: 0, slots: [], codex: [], wings: [], equip: null, inv: [], dayLen: DAY, t: Date.now() }; }
 // 부화 칸: { lv, g, prog, pt } — pt(실제 시각)에 prog만큼 자라 있었음. 그 뒤로 흐른 시간만큼 더 자람 (밤엔 3배)
 const newSlot = (lv, g, prog) => ({ lv, g, prog, pt: Date.now() });
