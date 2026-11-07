@@ -97,6 +97,19 @@
   #btnFly:active { transform: translateY(calc(-50% + 3px)); box-shadow: 0 2px 0 rgba(0,0,0,.35); }
   #btnFly.off { filter: grayscale(1); opacity: .6; }
   #btnFly.land { background: radial-gradient(circle at 35% 30%, #ffc58f, #d06a2f); }
+  /* 날기 버튼 바로 아래 — 달걀 모양 버튼: 내 우리의 동물과 초당 수입 보기 */
+  #btnPen { position: absolute; right: 28px; top: calc(56% + 54px); pointer-events: auto; width: 64px; height: 80px;
+    border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%; border: 3px solid rgba(255,255,255,.8);
+    background: radial-gradient(circle at 35% 28%, #fffdf4, #f3e6c4 55%, #d6bf8a); color: #5a3a1e; font-family: inherit;
+    font-size: 11px; font-weight: bold; cursor: pointer; line-height: 1.1; box-shadow: 0 4px 0 rgba(0,0,0,.35); }
+  #btnPen b { display: block; font-size: 24px; }
+  #btnPen:active { transform: translateY(3px); box-shadow: 0 1px 0 rgba(0,0,0,.35); }
+  body.touch #btnPen { top: auto; bottom: calc(var(--hotC) + 60px - 4px); right: 104px; width: 56px; height: 70px; }
+  .penList { display: grid; gap: 8px; margin: 12px 0; max-height: 52vh; overflow-y: auto; text-align: left; }
+  .penRow { display: flex; align-items: center; gap: 12px; background: rgba(255,255,255,.07); border-radius: 12px; padding: 8px 12px; }
+  .penRow .pic { width: 52px; height: 52px; font-size: 36px; flex: none; }
+  .penRow .pic img { width: 52px; height: 52px; }
+  .penRow .inc { margin-left: auto; color: #ffd23f; font-weight: bold; white-space: nowrap; }
   #btnDrop { bottom: 64px; background: #e0753a; }
 
   /* ---------- 모바일 터치 조작 (터치 화면에서만 보임) ---------- */
@@ -156,11 +169,26 @@
 
   .egg { width: 70px; height: 92px; border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%; display: inline-block; position: relative; }
   .egg::after { content: ''; position: absolute; left: 22%; top: 14%; width: 22%; height: 18%; border-radius: 50%; background: rgba(255,255,255,.55); filter: blur(2px); }
+  .egg.img { border-radius: 0; background-size: contain !important; background-position: center !important; background-repeat: no-repeat !important; }
+  .egg.img::after { display: none; }
+  .aimg { height: 1.25em; width: auto; vertical-align: middle; }
+  .codex .pic .aimg { height: 58px; }
+  .codex .pic .thumb { width: 72px; height: 72px; margin: -7px 0; }   /* 3D 모델 사진 */
+  .aimg.card { border-radius: 8px; }                         /* 배경째 넣은 그림 (사진 카드처럼) */
+  .egg.img.card { border-radius: 10px; background-size: cover !important; }
   .codex { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; margin-top: 14px; }
   .codex .cell { background: rgba(255,255,255,.06); border-radius: 12px; padding: 10px 4px; font-size: 12px; }
   .codex .cell .egg { width: 44px; height: 58px; }
   .codex .unknown { background: #444 !important; box-shadow: none !important; }
   .codex .unknown::after { display: none; }
+  .codex .cell.click { cursor: pointer; transition: background .15s; } .codex .cell.click:hover { background: rgba(255,255,255,.14); }
+  .codex .pic { height: 58px; display: flex; align-items: center; justify-content: center; font-size: 46px; line-height: 1; }
+  /* 오른쪽 가운데 — 도감 열기 (Tab) */
+  #btnCodex { position: absolute; right: 18px; top: 38%; transform: translateY(-50%); pointer-events: auto; width: 64px; height: 64px; border-radius: 50%;
+    border: 3px solid rgba(255,255,255,.75); background: radial-gradient(circle at 35% 30%, #ffe08f, #c98a1c); color: #fff; font-family: inherit;
+    font-size: 11px; font-weight: bold; cursor: pointer; line-height: 1.1; box-shadow: 0 4px 0 rgba(0,0,0,.35); text-shadow: 0 1px 2px #000; }
+  #btnCodex b { display: block; font-size: 24px; }
+  body.touch #btnCodex { top: 30%; right: 14px; width: 56px; height: 56px; }
   .row-label { grid-column: 1 / -1; text-align: left; font-weight: bold; margin-top: 6px; }
   body.narrow .panel { padding: 20px 16px; } body.narrow .panel h1 { font-size: 30px; } body.narrow .codex { grid-template-columns: repeat(3, 1fr); }
 </style>
@@ -178,6 +206,8 @@
   <div id="prompt" class="hidden"></div>
   <div id="flyBar" class="hidden"></div>
   <button id="btnFly" class="hidden" onclick="tryFly();this.blur()" title="날기 (Shift + Space)"></button>
+  <button id="btnPen" onclick="openPenInfo();this.blur()" title="내 우리 보기 (V)"><b>🥚</b>내 우리</button>
+  <button id="btnCodex" onclick="openCodex();this.blur()" title="동물 도감 (Tab)"><b>📖</b>도감</button>
   <button id="btnDrop" class="hudBtn hidden" onclick="dropEgg()">🥚 달걀 내리기 (R)</button>
   <div id="hotName" class="hidden"></div>
   <div id="hotbar"></div>
@@ -211,15 +241,23 @@ let myPen = 2;                                            // 혼자 할 때는 �
 const INV_MAX = 100;
 const EMOJI = { chicken: '🐔', pig: '🐷', dog: '🐶', cow: '🐮', duck: '🦆', monkey: '🐵', wolf: '🐺', tiger: '🐯', capybara: '🦫', lion: '🦁',
   tricera: '🦕', brachio: '🦕', anky: '🦖', ptera: '🦅', trex: '🦖', dragon: '🐉' };
+// 그림 아이콘 (도감·인벤토리·핫바): 있으면 이모지 대신 그림으로
+const ANIMAL_IMG = {};   // 동물 그림 아이콘 (비어 있으면 이모지)
+const EGG_IMG = { };
+const animalIcon = type => ANIMAL_IMG[type] ? `<img class="aimg${ANIMAL_IMG[type].startsWith("data:image/jpeg") ? " card" : ""}" src="${ANIMAL_IMG[type]}" alt="">` : EMOJI[type];
 const EGG_PRICE = [200, 1500, 4000], SECRET_EGG_PRICE = 30000;   // 알 판매가 (등급이 드러나지 않게 단계별 고정)
 const PET_PRICE_MULT = 150;                                        // 펫 판매가 = 초당 수입 × 150
 
 // 날개 상점
 const WINGS = [
   { id: 'white',  name: '흰색 날개', price: 100000,  dur: 2,   color: 0xffffff, css: '#ffffff' },
-  { id: 'black',  name: '검은 날개', price: 1000000, dur: 2.5, color: 0x1a1a1a, css: 'linear-gradient(135deg,#555,#0a0a0a)' },
-  { id: 'silver', name: '은색 날개', price: 3000000, dur: 3,   color: 0xc8d0d8, css: 'linear-gradient(135deg,#f4f6f8,#9aa4ae)' },
-  { id: 'gold',   name: '금색 날개', price: 5000000, dur: 4.5, color: 0xffcc33, css: 'linear-gradient(135deg,#fff3a0,#e0a800)' },
+  { id: 'black',  name: '검은 날개', price: 10e6,   dur: 2.5, color: 0x1a1a1a, css: 'linear-gradient(135deg,#555,#0a0a0a)' },
+  { id: 'silver', name: '은색 날개', price: 500e6,  dur: 3,   color: 0xc8d0d8, css: 'linear-gradient(135deg,#f4f6f8,#9aa4ae)' },
+  { id: 'gold',   name: '금색 날개', price: 1e9,    dur: 4.5, color: 0xffcc33, css: 'linear-gradient(135deg,#fff3a0,#e0a800)' },
+  // 에메랄드 날개: 날지는 못하고 Shift+Space(🪽 버튼)로 앞으로 대쉬, 5초에 1번
+  { id: 'emerald', name: '에메랄드 날개', price: 10e9, dash: true, cd: 5, color: 0x2ee59d, css: 'linear-gradient(135deg,#b6ffe0,#2ee59d 45%,#0a8f5a)' },
+  // 다이아 날개: 날지는 못하고 Shift+Space(🪽 버튼)로 3초 무적, 게임 하루에 5번
+  { id: 'diamond', name: '다이아 날개', price: 50e9, shield: true, life: true, sDur: 3, sUses: 5, color: 0x8ff3ff, css: 'linear-gradient(135deg,#ffffff,#bdf6ff 35%,#5fd8ff 65%,#e8fbff)' },
   // 베타 테스터 선물: 날지는 못하고 공중에서 한 번 더 점프 (더블점프)
   // 제작자 날개: 무한 비행 + 공중 무한 점프 (CREATOR_GIFT_OPEN 동안 접속한 사람에게 지급)
   { id: 'creator', name: '제작자 날개', price: 0, gift: true, inf: true, dur: Infinity, color: 0xb9f3ff, css: 'linear-gradient(135deg,#7ff5ff,#e6dcf5 40%,#c98a4a 70%,#2a4cff)' },
@@ -270,10 +308,10 @@ const LEVELS = [
     speed: 4.2, catchR: 1.2, sink: 0.6,
     d: { n: 9, size: 3.25, gap: 3.3, rise: 0.55, wig: 2.4, mov: 0.20, dis: 0.12, spin: 0.12, spike: 0.15 } },
   { name: '2단계 · 정글', boss: '호랑이', bossType: 'tiger', bossH: 2.6, emoji: '🐯', sky: 0x8fc7a8, nest: 0x6b5a3a, color: 0x4fb0ff,
-    speed: 3.4, catchR: 1.8, sink: 0.8,
+    speed: 5.1, catchR: 1.8, sink: 0.8,   // 호랑이: 예전 3.4의 1.5배
     d: { n: 14, size: 2.5, gap: 3.9, rise: 0.7, wig: 3.0, mov: 0.28, dis: 0.20, spin: 0.18, spike: 0.15 } },
   { name: '3단계 · 공룡 지역', boss: '티라노사우루스', bossType: 'trex', bossH: 7, emoji: '🦖', sky: 0x5a2a1c, nest: 0x4a3a30, color: 0xff8a3d,
-    speed: 4.0, catchR: 2.4, sink: 2.2,
+    speed: 8.0, catchR: 2.4, sink: 2.2,   // 티라노사우루스: 예전 4.0의 2배
     d: { n: 11, size: 1.9, gap: 4.5, rise: 0.85, wig: 3.8, mov: 0.30, dis: 0.28, spin: 0.24, spike: 0.15 } },
 ];
 const NIGHT_SKY = 0x0b1030;
@@ -281,26 +319,64 @@ const NIGHT_SKY = 0x0b1030;
 // 16종류의 서로 다른 달걀 디자인 (단계 × 등급)
 const EGGS = [
   [
-    { pat: 'plain', c1: '#f3efe4', rough: .6, css: 'radial-gradient(circle at 35% 30%, #fff, #ece6d8 60%, #c9bfaa)' },
-    { pat: 'speckle', c1: '#b8743f', c2: '#5a3418', rough: .7, css: 'radial-gradient(#5a3418 1px, transparent 1.6px) 0 0/9px 11px, radial-gradient(circle at 35% 30%, #d9a56f, #a0602f 75%)' },
-    { pat: 'spots', c1: '#f6ead0', c2: '#3b2a1a', rough: .5, css: 'radial-gradient(#3b2a1a 3px, transparent 4px) 0 0/16px 18px, radial-gradient(#3b2a1a 2px, transparent 3px) 8px 9px/16px 18px, radial-gradient(circle at 35% 30%, #fff6e0, #e5d3ab 75%)' },
-    { pat: 'plain', c1: '#d4dbe2', metal: .95, rough: .18, css: 'radial-gradient(circle at 35% 28%, #fff, #c9d1d9 30%, #7d8894 70%, #4b535c)' },
-    { pat: 'plain', c1: '#ffcc33', metal: 1, rough: .15, glow: .35, css: 'radial-gradient(circle at 35% 28%, #fff7c2, #ffd23f 35%, #c98a00 75%, #7a5200)' },
+    // ※ 초원 알 리뉴얼: 얼굴·머리 없이 몸의 특징(깃털·날개·꼬리·발·무늬)만 담음
+    // 닭 알: 하얀 알 + 앞쪽 노란 닭 부리(윗부리·아랫부리), 양옆에 접힌 흰 날개, 뒤쪽 위로 솟은 흰 꼬리깃, 아래쪽 노란 닭발 (발가락 3개 + 뒷발가락)
+    { pat: 'plain', c1: '#f7f5ef', rough: .4, beak: 0xf2a81c,
+      wings: { c: 0xf4f2ec, tip: 0xd9d6cc }, tailFan: [0xf4f2ec, 0xe6e3da, 0xfafaf6], chickFeet: 0xf0c040,
+      css: 'radial-gradient(ellipse 12% 8% at 50% 38%, #f2a81c 90%, transparent), radial-gradient(circle at 35% 28%, #fff, #f2f0ea 45%, #c9c6bc)' },
+    // 돼지 알: 분홍 살결 + 옅은 털 점, 앞쪽 돼지 코(콧구멍 2개), 뒤쪽 돌돌 말린 꼬리, 아래 짧은 다리 4개와 진한 발굽, 진흙 얼룩
+    { pat: 'pig', c1: '#f2a99c', c2: '#d98276', c3: '#8a6244', rough: .45, snout: 0xe48a80, curlTail: 0xe8968a, legs: { leg: 0xeea093, hoof: 0x8a5a4a, h: 0.8 },
+      css: 'radial-gradient(ellipse 5% 6% at 43% 55%, #8a3e38 90%, transparent), radial-gradient(ellipse 5% 6% at 57% 55%, #8a3e38 90%, transparent), radial-gradient(ellipse 20% 14% at 50% 55%, #e48a80 92%, #c9706a 96%, transparent), radial-gradient(ellipse 22% 12% at 30% 80%, #8a6244cc, transparent), radial-gradient(ellipse 16% 9% at 70% 88%, #8a6244aa, transparent), radial-gradient(circle at 35% 30%, #ffd2c8, #f2a99c 55%, #d98276)' },
+    // 개 알: 갈색 털 + 밝은 배털 + 발자국, 양옆에 축 늘어진 진갈색 강아지 귀, 뒤쪽 위로 말려 올라간 꼬리(끝은 흰 털), 앞쪽 동그란 앞발 2개
+    { pat: 'dog', c1: '#c8865a', c2: '#99582f', c3: '#f1dcc0', rough: .6, ears: 0x8a4f2a, dogTail: { c: 0xb87444, tip: 0xf1dcc0 }, paws: 0xb87444,
+      css: 'radial-gradient(ellipse 14% 26% at 9% 42%, #8a4f2a 90%, transparent), radial-gradient(ellipse 14% 26% at 91% 42%, #8a4f2a 90%, transparent), linear-gradient(to bottom, transparent 72%, #f1dcc0 72%), radial-gradient(circle at 35% 30%, #e2a57a, #c4825a 60%, #95603c)' },
+    // 소 알: 흰 바탕 + 검은 얼룩 + 갈색 점, 아래쪽 분홍 젖통(젖꼭지 4개), 다리 4개와 검은 발굽, 뒤쪽에 늘어진 꼬리 + 끝의 검은 털뭉치
+    { pat: 'cow', c1: '#f4f4f2', c2: '#1c1c1e', c3: '#9a6a4a', rough: .55, udder: 0xf0a8a8, legs: { leg: 0xf4f4f2, hoof: 0x2a2a2c, h: 1 }, cowTail: { c: 0xf4f4f2, tuft: 0x1c1c1e },
+      css: 'radial-gradient(ellipse 22% 16% at 32% 34%, #1c1c1e 90%, transparent), radial-gradient(ellipse 18% 14% at 70% 58%, #1c1c1e 90%, transparent), radial-gradient(ellipse 18% 10% at 50% 96%, #f0a8a8 90%, transparent), radial-gradient(circle at 35% 30%, #fff, #e6e6e6 60%, #b8b8b8)' },
+    // 오리 알: 하얀 깃털 무늬 + 아래쪽 물결, 양옆에 작은 날개, 뒤쪽 위로 살짝 들린 짧은 꼬리깃, 아래쪽 앞에 주황 물갈퀴 발 2개
+    { pat: 'duck', c1: '#f1f1ee', c2: '#c9ccd2', c3: '#7fc4ea', rough: .3, feet: 0xe8a02a, wings: { c: 0xf6f6f2, tip: 0xc9ccd2 }, duckTail: 0xf6f6f2,
+      css: 'repeating-linear-gradient(170deg, transparent 0 6px, #7fc4ea55 6px 8px) 0 100%/100% 22% no-repeat, radial-gradient(circle at 35% 28%, #fff, #ececea 45%, #bdbdb8)' },
   ],
   [
-    { pat: 'stripes', c1: '#f08a1c', c2: '#1a1208', rough: .7, css: 'radial-gradient(circle at 35% 30%, rgba(255,255,255,.45), transparent 50%), repeating-linear-gradient(100deg, #f08a1c 0 10px, #1a1208 10px 15px)' },
-    { pat: 'plain', c1: '#2fa86a', metal: .2, rough: .08, css: 'radial-gradient(circle at 35% 30%, #c8ffd8, #2fa86a 55%, #0d5434)' },
-    { pat: 'flame', c1: '#ff2a00', c2: '#ffd84a', rough: .4, emap: 1, css: 'radial-gradient(circle at 35% 30%, #fff3a0, #ff7a1a 50%, #b31d00)' },
-    { pat: 'spots', c1: '#f0a020', c2: '#ffd98a', rough: .08, opacity: .85, glow: .25, css: 'radial-gradient(circle at 35% 30%, #fff0b0, #f0a020 55%, #8a4a00)' },
-    { pat: 'stripes', c1: '#eaf6ff', c2: '#7fb8ff', rough: .05, opacity: .85, glow: .45, css: 'radial-gradient(circle at 35% 30%, rgba(255,255,255,.9), transparent 45%), repeating-linear-gradient(100deg, #e8f6ff 0 11px, #8fc6ff 11px 15px)' },
+    // ※ 정글 알 리뉴얼 (카피바라 제외): 얼굴·머리 없이 몸의 특징만 담음
+    // 원숭이 알: 갈색 털 + 앞쪽 밝은 배털, 양옆의 동그란 원숭이 귀, 앞쪽에 붙은 바나나, 뒤쪽 길게 말려 올라간 꼬리, 아래 작은 발 2개
+    { pat: 'monkey', c1: '#a8693f', c2: '#76452a', c3: '#e8c69a', rough: .75, ears: 0x8f5733, earType: 'monkey', monkey: { arm: 0x8f5733, banana: 0xffd84a },
+      paws: { c: 0xd9a878, toe: 0xd9a878 },
+      css: 'radial-gradient(circle at 6% 30%, #e8c69a 0 7%, #8f5733 8% 13%, transparent 14%), radial-gradient(circle at 94% 30%, #e8c69a 0 7%, #8f5733 8% 13%, transparent 14%), radial-gradient(ellipse 34% 30% at 50% 66%, #e8c69a 95%, transparent), linear-gradient(to bottom, transparent 46%, #ffd84a 46% 53%, transparent 53%), radial-gradient(circle at 35% 30%, #c98a5c, #a8693f 55%, #7a4a2c)' },
+    // 늑대 알: 회색 털 + 등의 진한 안장 무늬 + 앞쪽 흰 가슴털, 위쪽에 쫑긋 선 뾰족한 늑대 귀, 뒤쪽 아래로 늘어진 복슬복슬한 꼬리(끝은 진한 색), 앞쪽 발톱 달린 발 2개
+    { pat: 'wolf', c1: '#8d9299', c2: '#3c4046', c3: '#eceef0', rough: .85, ears: 0x6a6f76, earType: 'wolf', claws: 0x5c6168, wolfTail: { c: 0x7d828a, tip: 0x2e3236 },
+      css: 'conic-gradient(from 155deg at 33% 2%, #6a6f76 0 50deg, transparent 0) 0 0/100% 24% no-repeat, conic-gradient(from 155deg at 67% 2%, #6a6f76 0 50deg, transparent 0) 0 0/100% 24% no-repeat, radial-gradient(ellipse 30% 36% at 50% 68%, #eceef0 95%, transparent), radial-gradient(ellipse 60% 40% at 50% 8%, #3c4046 95%, transparent), radial-gradient(circle at 35% 30%, #b4b8be, #8d9299 55%, #5c6168)' },
+    // 호랑이 알: 주황 바탕 + 끝이 뾰족한 검은 물결 줄무늬, 흰 배, 위쪽의 둥근 호랑이 귀(뒷면 검정 + 흰 점), 뒤쪽 위로 휘어 올라간 검은 고리 줄무늬 꼬리, 앞쪽 큰 앞발 2개 (흰 발가락)
+    { pat: 'tiger', c1: '#f08a1c', c2: '#15100a', c3: '#fff4e2', rough: .6, ears: 0xf08a1c, earType: 'tiger', stripedTail: { c: 0xf08a1c, band: 0x15100a }, paws: { c: 0xf08a1c, toe: 0xfff4e2 },
+      css: 'radial-gradient(circle at 30% 5%, #fff0d8 0 5%, #f08a1c 6% 11%, transparent 12%), radial-gradient(circle at 70% 5%, #fff0d8 0 5%, #f08a1c 6% 11%, transparent 12%), radial-gradient(circle at 35% 30%, rgba(255,255,255,.4), transparent 45%), linear-gradient(to bottom, transparent 72%, #fff4e2 72%), repeating-linear-gradient(100deg, #f08a1c 0 9px, #15100a 9px 12px, #f08a1c 12px 16px)' },
+    // 카피바라 알: 적갈색 짧은 털, 위쪽의 작은 둥근 귀, 머리 위에 올린 유자(귤)
+    { pat: 'capy', c1: '#a26a3e', c2: '#6e4426', c3: '#3e2a1c', rough: .9, ears: 0x5e3b24, earType: 'capy', yuzu: true,
+      css: 'radial-gradient(circle at 35% 30%, #c08a5a, #a26a3e 55%, #6e4426)' },
+    // 사자 알: 황금빛 털 + 위아래(회전축) 방향으로 흘러내리는 매끈한 세로 갈기 결, 위쪽의 둥근 사자 귀, 꼬리 끝 털뭉치, 앞쪽 크고 묵직한 앞발 2개 (전설 알이라 살짝 빛남)
+    { pat: 'lion', c1: '#d9a441', c2: '#5a2e1a', c3: '#f3dcaa', rough: .6, glow: .15, ears: 0xd9a441, earType: 'lion',
+      mane: [0x8a4a1a, 0xb8641f, 0x6e3a14], tailTuft: 0x6e3a14, paws: { c: 0xd9a441, toe: 0xe8c47a, size: 1.25 },
+      css: 'radial-gradient(circle at 32% 6%, #f3dcaa 0 5%, #d9a441 6% 11%, transparent 12%), radial-gradient(circle at 68% 6%, #f3dcaa 0 5%, #d9a441 6% 11%, transparent 12%), repeating-linear-gradient(90deg, #b8641f 0 5px, #8a4a1a 5px 8px) 0 22%/100% 52% no-repeat, radial-gradient(circle at 35% 30%, #f0c870, #d9a441 55%, #a8742a)' },
   ],
   [
-    { pat: 'cracks', c1: '#a39a88', c2: '#4a4236', rough: .95, css: 'repeating-linear-gradient(60deg, transparent 0 14px, rgba(60,50,40,.55) 14px 15px), radial-gradient(circle at 35% 30%, #d8d0c0, #8f8676 75%)' },
-    { pat: 'lava', c1: '#1b1210', c2: '#ff6a00', rough: .8, emap: 1.3, css: 'repeating-linear-gradient(35deg, #1b1210 0 9px, #ff6a00 9px 11px), #1b1210' },
-    { pat: 'cracks', c1: '#9be3ff', c2: '#e8fbff', rough: .05, opacity: .75, glow: .2, css: 'radial-gradient(circle at 35% 30%, #ffffff, #9be3ff 50%, #2f8fd0)' },
-    { pat: 'zigzag', c1: '#5a1aa0', c2: '#ffe14a', rough: .3, emap: 1, css: 'repeating-linear-gradient(120deg, transparent 0 12px, #ffe14a 12px 15px), radial-gradient(circle at 35% 30%, #d9a3ff, #6a1fb0 70%, #2b0850)' },
-    { pat: 'rainbow', rough: .2, emap: .7, css: 'linear-gradient(160deg, #ff4d4d, #ffa64d, #ffff4d, #4dff88, #4dc3ff, #a64dff)' },
-    { pat: 'scales', c1: '#3a0a14', c2: '#ffb020', rough: .3, emap: 1.4, css: 'radial-gradient(circle at 50% 0, transparent 6px, #ffb020 7px, transparent 8px) 0 0/14px 10px, radial-gradient(circle at 35% 30%, #8a1a2a, #3a0a14 75%)' },
+    // 트리케라톱스 알: 올리브 초록 비늘 + 등 쪽 진한 줄무늬, 위쪽 뒤로 펼쳐진 큰 목 방패(프릴)와 가장자리 돌기, 상아색 뿔 3개 (이마 2개 + 코 1개)
+    { pat: 'tricera', c1: '#7a8f5a', c2: '#4e5f36', c3: '#a9b97a', rough: .75, trike: { frill: 0x9aa86a, rim: 0x5e6e3e, horn: 0xf5ecd0 },
+      css: 'radial-gradient(ellipse 80% 30% at 50% 6%, #9aa86a 60%, #5e6e3e 62% 68%, transparent 70%), repeating-radial-gradient(circle at 50% 60%, transparent 0 6px, rgba(60,75,40,.35) 6px 7px), radial-gradient(circle at 35% 35%, #a9b97a, #7a8f5a 55%, #4e5f36)' },
+    // 브라키오사우루스 알: 청회색 비늘 + 밝은 배 + 등의 둥근 얼룩, 위로 길게 솟은 목(얼굴 없음), 아래 굵은 다리 4개, 뒤쪽 짧은 꼬리
+    { pat: 'brachio', c1: '#64808e', c2: '#3e5662', c3: '#c9d2c4', rough: .7, brachio: { skin: 0x64808e, dark: 0x3e5662, belly: 0xc9d2c4 },
+      css: 'radial-gradient(circle at 30% 40%, #3e5662 0 5px, transparent 6px), radial-gradient(circle at 68% 30%, #3e5662 0 4px, transparent 5px), radial-gradient(circle at 60% 55%, #3e5662 0 5px, transparent 6px), linear-gradient(to bottom, transparent 70%, #c9d2c4 70%), radial-gradient(circle at 35% 30%, #9fb4b8, #64808e 55%, #3e5662)' },
+    // 앙키케팔로사우루스 알: 갈색 비늘 + 밝은 배 + 얼룩, 위쪽을 덮은 매끈하고 두꺼운 뼈 돔, 돔 둘레의 상아색 뼈 혹, 뒤로 곧게 뻗은 꼬리
+    { pat: 'anky', c1: '#8a6a4a', c2: '#5a4230', c3: '#dcc196', rough: .75, dome: { cap: 0xd9b88a, knob: 0xf1e4c4, skin: 0x8a6a4a },
+      css: 'radial-gradient(ellipse 62% 34% at 50% 14%, #f1e4c4 0 30%, #d9b88a 34% 92%, #f1e4c4 94%, transparent 100%), linear-gradient(to bottom, transparent 70%, #dcc196 70%), radial-gradient(circle at 35% 45%, #b08a64, #8a6a4a 55%, #5a4230)' },
+    // 프테라노돈 알: 적갈색 짧은 솜털 + 밝은 배, 양옆으로 길게 뻗은 가죽 날개(긴 날개 손가락 + 진한 가장자리), 날개 앞쪽 작은 갈고리 손가락 3개, 아래 작은 발톱 발 2개, 아주 짧은 꼬리
+    { pat: 'ptera', c1: '#b07050', c2: '#7a4630', c3: '#f0d6b0', rough: .8, ptera: { body: 0xb07050, memb: 0x9a5a40, edge: 0x5e3222, bone: 0x8a4a32, claw: 0x2a1a14 },
+      css: 'linear-gradient(100deg, transparent 0 8%, #9a5a40 8% 20%, transparent 20% 80%, #9a5a40 80% 92%, transparent 92%) 0 30%/100% 22% no-repeat, linear-gradient(to bottom, transparent 64%, #f0d6b0 64%), radial-gradient(circle at 35% 30%, #d49a76, #b07050 55%, #7a4630)' },
+    // 티렉스 알: 짙은 녹색 비늘 + 얼룩 + 밝은 배, 앞쪽의 아주 작은 두 팔(발톱 2개씩), 아래 굵은 허벅지와 세 발가락 발톱, 등줄기 돌기, 뒤쪽 굵고 긴 꼬리
+    { pat: 'trex', c1: '#4f6e36', c2: '#2e4520', c3: '#c2b680', rough: .7, trex: { skin: 0x4f6e36, dark: 0x2e4520, belly: 0xc2b680, claw: 0x2a2420 },
+      css: 'radial-gradient(circle at 30% 30%, #2e4520 0 4px, transparent 5px), radial-gradient(circle at 66% 24%, #2e4520 0 5px, transparent 6px), radial-gradient(circle at 58% 48%, #2e4520 0 4px, transparent 5px), linear-gradient(to bottom, transparent 66%, #c2b680 66%), radial-gradient(circle at 35% 30%, #8a9a55, #4f6e36 55%, #2e4520)' },
+    // 드래곤 알 (비밀): 빨간색 한 가지 색의 비늘 무늬 (진한 빨강 바탕 + 밝은 빨강 비늘 테두리), 앞쪽 금빛 배 비늘판, 등 양쪽의 박쥐 같은 막 날개, 등줄기를 따라 금빛 가시, 끝이 스페이드 모양인 꼬리, 아래 발톱 달린 발
+    { pat: 'scales', c1: '#a3141f', c2: '#e8323c', c3: '#e0a83a', belly: true, rough: .3, emap: .45, claws: 0x5a1020,
+      dragon: { memb: 0x6a0e1e, bone: 0x4a0a14, gold: 0xe0a83a },
+      css: 'repeating-linear-gradient(to bottom, #e0a83a 0 5px, #8a5a1a 5px 7px) 50% 100%/34% 46% no-repeat, radial-gradient(circle at 50% 0, transparent 6px, #e8323c 7px, transparent 8px) 0 0/14px 10px, radial-gradient(circle at 35% 30%, #d8303c, #a3141f 75%)' },
   ],
 ];
 EGGS.forEach((row, lv) => row.forEach((e, g) => { e.lv = lv; e.g = g; }));
@@ -328,7 +404,10 @@ function growthInv(v) {
 //  저장 (브라우저에 저장 → 껐다 켜도 달걀/동물/돈 유지, 꺼져 있어도 달걀은 자람)
 // =====================================================================
 const SAVE_KEY = 'eggthief_farm_v3';
-const SLOTS = 18;
+const SLOTS = 64;   // 우리 안 알 놓는 칸 (8 × 8). 알은 칸이 남는 한 마음껏 놓을 수 있고, 동물(부화한 펫) 수만 제한됨
+const PEN_BASE = 5, PEN_STEP_CAP = 5, PEN_UP = [1e6, 1e6, 5e6];   // 동물 5마리 + 업그레이드 1번마다 +5마리 (비용: 1단계 1M · 2단계 1M · 3단계 5M)
+const penLv = () => Math.min(SAVE.penLv || 0, PEN_UP.length);
+const penCap = () => PEN_BASE + PEN_STEP_CAP * penLv();
 let SAVE = null, offlineEarned = 0, betaNew = false, creatorNew = false;
 // true 동안 접속한 모든 사람이 제작자 날개를 받음. 지급을 멈추려면 false로 (이미 받은 사람은 계속 가짐)
 const CREATOR_GIFT_OPEN = false;   // 2026-11-04 지급 종료
@@ -337,14 +416,32 @@ function freshSave() { return { money: 0, slots: [], codex: [], wings: [], equip
 const newSlot = (lv, g, prog) => ({ lv, g, prog, pt: Date.now() });
 const progNow = s => s.prog + (growth(Date.now()) - growth(s.pt));
 const growLeft = s => animalOf(s.lv, s.g).ht - progNow(s);
-const isHatched = s => growLeft(s) <= 0;
+const isHatched = s => !s.hold && growLeft(s) <= 0;   // hold: 다 자랐지만 우리에 동물 자리가 없어서 기다리는 알
+const hatchAt = s => growthInv(growth(s.pt) + animalOf(s.lv, s.g).ht - s.prog);   // 다 자라는(자란) 실제 시각
+const animalCount = () => SAVE.slots.filter(s => s && isHatched(s)).length;
+// 다 자란 알을 부화시킴 — 동물 수가 최대치면 그 알은 기다림(hold). 자리가 나면 기다리던 알부터 부화. 바뀐 게 있으면 true
+function settleHatches() {
+  const cap = penCap(); let n = 0, changed = false; const ready = [], held = [];
+  SAVE.slots.forEach(s => {
+    if (!s) return;
+    if (s.hold) held.push(s);
+    else if (growLeft(s) <= 0) (s.born ? n++ : ready.push(s));
+  });
+  ready.sort((a, b) => hatchAt(a) - hatchAt(b)).forEach(s => { if (n < cap) { s.born = true; n++; } else s.hold = true; changed = true; });
+  held.sort((a, b) => (a.holdT || 0) - (b.holdT || 0)).forEach(s => {
+    if (n >= cap) return;
+    s.hold = false; s.born = true; s.prog = animalOf(s.lv, s.g).ht; s.pt = Date.now(); n++; changed = true;
+  });
+  SAVE.slots.forEach(s => { if (s && s.hold && !s.holdT) s.holdT = Date.now(); if (s && !s.hold) delete s.holdT; });
+  return changed;
+}
 function totalIncome() { return SAVE.slots.reduce((a, s) => a + (s && isHatched(s) ? animalOf(s.lv, s.g).inc : 0), 0); }
 function loadSave() {
   SAVE = freshSave(); delete SAVE.dayLen;
   try { const s = JSON.parse(localStorage.getItem(SAVE_KEY)); if (s) Object.assign(SAVE, s); } catch (e) {}
   // 예전 형식(f0) 칸을 새 형식으로 바꿈. 마지막 저장 시각보다 더 자라 있을 수는 없게 막음
   const oldDay = SAVE.dayLen || 180;
-  if (oldDay !== DAY) SAVE.flyDay = null;
+  if (oldDay !== DAY) SAVE.flyDay = SAVE.shieldDay = null;
   SAVE.slots.forEach((s, i) => {
     if (!s || s.pt !== undefined) return;
     const ht = animalOf(s.lv, s.g).ht;
@@ -355,10 +452,13 @@ function loadSave() {
     SAVE.slots[i] = { lv: s.lv, g: s.g, prog: Math.min(prog, ht + 1), pt: SAVE.t };
   });
   SAVE.dayLen = DAY;
+  // 예전 저장: 마지막 저장 때 이미 태어나 있던 동물은 그대로 둠 (최대치를 넘어도 빼앗지 않음). 그 뒤에 다 자란 알은 최대치 안에서만 부화
+  SAVE.slots.forEach(s => { if (s && s.born === undefined && !s.hold && hatchAt(s) <= SAVE.t) s.born = true; });
+  settleHatches();
   // 꺼져 있던 동안 부화한 동물들이 번 돈
   const now = Date.now(); offlineEarned = 0;
   SAVE.slots.forEach(s => {
-    if (!s) return;
+    if (!s || s.hold) return;   // 자리가 없어 기다리는 알은 돈을 벌지 않음
     const a = animalOf(s.lv, s.g), hatchedAt = growthInv(growth(s.pt) + a.ht - s.prog);
     const from = Math.max(SAVE.t, hatchedAt);
     if (now > from) offlineEarned += a.inc * (now - from) / 1000;
@@ -369,7 +469,18 @@ function loadSave() {
   if (CREATOR_GIFT_OPEN && !SAVE.wings.includes('creator')) { SAVE.wings.push('creator'); SAVE.equip = 'creator'; creatorNew = true; }
 }
 function save() { SAVE.t = Date.now(); try { localStorage.setItem(SAVE_KEY, JSON.stringify(SAVE)); } catch (e) {} }
-const fmt = n => Math.floor(n).toLocaleString('ko-KR');
+const fmt = n => {
+  n = Math.floor(n);
+  const U = ['', 'K', 'M', 'B', 'T', 'Qa', 'Qi', 'Sx', 'Sp', 'Oc', 'No', 'Dc'];
+  const neg = n < 0 ? '-' : ''; n = Math.abs(n);
+  if (n < 1000) return neg + n;
+  let i = 0; while (n >= 1000 && i < U.length - 1) { n /= 1000; i++; }
+  const d = n < 10 ? 2 : n < 100 ? 1 : 0;
+  const v = Math.floor(n * 10 ** d + 1e-9) / 10 ** d;   // 내림 (999.99K가 1000K로 반올림되지 않게)
+  const s = d ? v.toFixed(d).replace(/\.?0+$/, '') : String(v);
+  return neg + s + U[i];
+};
+
 const mmss = s => { s = Math.max(0, Math.ceil(s)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
 
 // =====================================================================
@@ -394,6 +505,8 @@ function mat(color, o = {}) { return new THREE.MeshStandardMaterial(Object.assig
 function mesh(geo, m, shadow = true) { const me = new THREE.Mesh(geo, m); me.castShadow = shadow; me.receiveShadow = true; return me; }
 function eggHTML(lv, g) {
   const glow = g === SECRET ? 'box-shadow:0 0 24px #ff4dd2;' : '';
+  const img = EGG_IMG[lv + '-' + g];
+  if (img) return `<div class="egg img${img.startsWith('data:image/jpeg') ? ' card' : ''}" style="background:url(${img})"></div>`;   // 그림 달걀
   return `<div class="egg" style="background:${EGGS[lv][g].css};${glow}"></div>`;
 }
 
@@ -487,7 +600,132 @@ function eggTexture(e) {
   const cv = document.createElement('canvas'); cv.width = cv.height = 256; const x = cv.getContext('2d');
   const R = rngFn((e.g + 1) * 31 + e.lv * 977);
   x.fillStyle = e.c1 || '#fff'; x.fillRect(0, 0, 256, 256);
-  if (e.pat === 'speckle' || e.pat === 'spots') {
+  if (e.pat === 'dog') {   // 개 알: 얼룩 몇 개 + 발자국 2개
+    if (e.c3) { const g = x.createLinearGradient(0, 0, 0, 256); g.addColorStop(0, e.c1); g.addColorStop(0.64, e.c1); g.addColorStop(0.74, e.c3); g.addColorStop(1, e.c3); x.fillStyle = g; x.fillRect(0, 0, 256, 256); }   // 밝은 배털
+    x.fillStyle = e.c2;
+    for (let i = 0; i < 22; i++) { x.globalAlpha = 0.5 + R() * 0.4; x.beginPath(); x.ellipse(R() * 256, R() * 256, 2 + R() * 4, 2 + R() * 3.5, R() * 3, 0, 7); x.fill(); }
+    x.globalAlpha = 0.9;
+    [[70, 170, 1], [200, 120, 0.8]].forEach(([px, py, s]) => {
+      x.beginPath(); x.ellipse(px, py, 9 * s, 7.5 * s, 0, 0, 7); x.fill();                        // 발바닥
+      [[-11, -10], [-4, -15], [4, -15], [11, -10]].forEach(([dx, dy]) => { x.beginPath(); x.ellipse(px + dx * s, py + dy * s, 3.4 * s, 4 * s, 0, 0, 7); x.fill(); });   // 발가락
+    });
+    x.globalAlpha = 1;
+  } else if (e.pat === 'chick') {   // 닭 알: 크기가 제각각인 얼룩 + 아주 작은 점
+    x.fillStyle = e.c2;
+    for (let i = 0; i < 34; i++) { x.globalAlpha = 0.55 + R() * 0.4; x.beginPath(); x.ellipse(R() * 256, R() * 256, 2 + R() * 6, 2 + R() * 5, R() * 3, 0, 7); x.fill(); }
+    x.globalAlpha = 0.35; for (let i = 0; i < 160; i++) { x.beginPath(); x.arc(R() * 256, R() * 256, 0.6 + R(), 0, 7); x.fill(); }
+    x.globalAlpha = 1;
+  } else if (e.pat === 'tricera' || e.pat === 'brachio' || e.pat === 'anky' || e.pat === 'trex') {   // 공룡 알: 비늘 + 무늬
+    if (e.pat !== 'tricera') {   // 아래쪽(배)은 밝은 색
+      const g = x.createLinearGradient(0, 0, 0, 256); g.addColorStop(0, e.c1); g.addColorStop(0.62, e.c1); g.addColorStop(0.72, e.c3); g.addColorStop(1, e.c3);
+      x.fillStyle = g; x.fillRect(0, 0, 256, 256);
+    }
+    // 작은 비늘 (육각 배열)
+    for (let row = 0; row < 26; row++) for (let col = 0; col < 26; col++) {
+      const px = col * 10 + (row % 2) * 5, py = row * 10;
+      x.globalAlpha = 0.25 + R() * 0.25; x.strokeStyle = e.c2; x.lineWidth = 1;
+      x.beginPath(); x.arc(px, py, 4.2, 0, 7); x.stroke();
+      if (e.pat === 'tricera' && R() < 0.3) { x.fillStyle = e.c3; x.globalAlpha = 0.35; x.fill(); }
+    }
+    x.fillStyle = e.c2;
+    if (e.pat === 'tricera') {   // 등 쪽 진한 줄무늬 띠 (세로로 굽은 띠)
+      for (let i = 0; i < 9; i++) {
+        const bx = i * 28.4 + R() * 6; x.globalAlpha = 0.55;
+        x.beginPath(); x.moveTo(bx, 0); x.quadraticCurveTo(bx + 10, 70, bx + 2, 150); x.lineTo(bx + 7, 150); x.quadraticCurveTo(bx + 16, 70, bx + 9, 0); x.fill();
+      }
+    } else {   // 등의 둥근 얼룩 (크고 작은 점)
+      for (let i = 0; i < 26; i++) { x.globalAlpha = 0.5 + R() * 0.35; x.beginPath(); x.ellipse(R() * 256, 15 + R() * 140, 4 + R() * 11, 3 + R() * 8, R() * 3, 0, 7); x.fill(); }
+    }
+    x.globalAlpha = 1;
+  } else if (e.pat === 'monkey') {   // 원숭이 알: 갈색 털결 + 앞쪽 아래의 밝은 배털 (텍스처 가장자리 x=0/256 이 알의 앞쪽)
+    x.lineWidth = 1.3;
+    for (let i = 0; i < 700; i++) { const px = R() * 256, py = R() * 256; x.strokeStyle = R() < 0.5 ? e.c2 : '#c98a5c'; x.globalAlpha = 0.3; x.beginPath(); x.moveTo(px, py); x.quadraticCurveTo(px + 2, py + 3, px + (R() - 0.5) * 3, py + 6); x.stroke(); }
+    x.globalAlpha = 1; x.fillStyle = e.c3;
+    for (const mx of [0, 256]) { x.beginPath(); x.ellipse(mx, 175, 46, 58, 0, 0, 7); x.fill(); }   // 배털
+    x.strokeStyle = '#d9b48a'; x.lineWidth = 1;
+    for (let i = 0; i < 120; i++) { const mx = R() < 0.5 ? R() * 40 : 256 - R() * 40, py = 125 + R() * 100; x.globalAlpha = 0.5; x.beginPath(); x.moveTo(mx, py); x.lineTo(mx + (R() - 0.5) * 2, py + 4); x.stroke(); }
+    x.globalAlpha = 1;
+  } else if (e.pat === 'capy') {   // 카피바라 알: 적갈색 짧은 털결 (얼굴 없음)
+    const gr = x.createLinearGradient(0, 0, 0, 256); gr.addColorStop(0, '#8a5634'); gr.addColorStop(0.5, e.c1); gr.addColorStop(1, '#b07a4c');
+    x.fillStyle = gr; x.fillRect(0, 0, 256, 256);
+    x.lineWidth = 1.2;
+    for (let i = 0; i < 900; i++) {                                         // 짧은 털
+      const px = R() * 256, py = R() * 256; x.strokeStyle = R() < 0.6 ? e.c2 : '#c99467'; x.globalAlpha = 0.25 + R() * 0.2;
+      x.beginPath(); x.moveTo(px, py); x.lineTo(px + (R() - 0.5) * 2, py + 4 + R() * 3); x.stroke();
+    }
+    x.globalAlpha = 1;
+  } else if (e.pat === 'lion') {   // 사자 알: 황금빛 털결 (얼굴 없음)
+    const gr = x.createLinearGradient(0, 0, 0, 256); gr.addColorStop(0, '#c98e30'); gr.addColorStop(0.5, e.c1); gr.addColorStop(1, '#e8bd66');
+    x.fillStyle = gr; x.fillRect(0, 0, 256, 256);
+    x.lineWidth = 1.2;
+    for (let i = 0; i < 600; i++) { const px = R() * 256, py = R() * 256; x.strokeStyle = R() < 0.5 ? '#b07a28' : '#f0c870'; x.globalAlpha = 0.25; x.beginPath(); x.moveTo(px, py); x.lineTo(px + (R() - 0.5) * 3, py + 5); x.stroke(); }
+    x.globalAlpha = 1;
+  } else if (e.pat === 'tiger') {   // 호랑이 알: 위로 갈수록 진한 주황, 아래 흰 배, 끝이 뾰족한 물결 줄무늬 (얼굴 무늬 없음)
+    const gr = x.createLinearGradient(0, 0, 0, 256);
+    gr.addColorStop(0, '#e2700f'); gr.addColorStop(0.55, e.c1); gr.addColorStop(0.72, '#f6b064'); gr.addColorStop(0.8, e.c3); gr.addColorStop(1, e.c3);
+    x.fillStyle = gr; x.fillRect(0, 0, 256, 256);
+    x.fillStyle = e.c2;
+    const stripe = (sx, sy, len, w, dir) => {   // dir 1: 위에서 아래로, -1: 아래에서 위로 — 끝으로 갈수록 가늘어지는 물결 줄
+      const L = [], Rr = [];
+      for (let t = 0; t <= 1.001; t += 0.1) {
+        const yy = sy + dir * len * t, wob = Math.sin(t * 5 + sx) * 5, ww = w * (1 - t) * (0.7 + 0.3 * Math.sin(t * 9 + sx));
+        L.push([sx + wob - ww / 2, yy]); Rr.push([sx + wob + ww / 2, yy]);
+      }
+      x.beginPath(); L.forEach(([a, b], i) => i ? x.lineTo(a, b) : x.moveTo(a, b)); Rr.reverse().forEach(([a, b]) => x.lineTo(a, b)); x.closePath(); x.fill();
+    };
+    for (let i = 0; i < 14; i++) {
+      const sx = 24 + i * 15.5 + R() * 6;
+      stripe(sx, 0, 75 + R() * 70, 14 + R() * 8, 1);                           // 위에서 내려오는 줄
+      if (i % 2) stripe(sx + 7, 205, 30 + R() * 30, 9 + R() * 4, -1);         // 흰 배 쪽은 짧은 줄만
+      if (R() < 0.6) stripe(sx + 5, 95 + R() * 40, 35 + R() * 30, 8 + R() * 4, 1);   // 중간에 끊긴 짧은 줄
+    }
+    for (const mx of [6, 250]) { stripe(mx, 0, 80 + R() * 50, 13, 1); if (R() < 0.7) stripe(mx + 3, 110, 40, 8, 1); }   // 앞쪽에도 줄무늬 (얼굴 무늬 없음)
+  } else if (e.pat === 'wolf') {   // 늑대 알: 회색 털 + 등 쪽(가운데 x=128)의 진한 안장 무늬 + 앞쪽 아래의 흰 가슴털
+    const gr = x.createLinearGradient(0, 0, 0, 256); gr.addColorStop(0, '#6f747c'); gr.addColorStop(0.6, e.c1); gr.addColorStop(1, '#a9aeb4');
+    x.fillStyle = gr; x.fillRect(0, 0, 256, 256);
+    x.fillStyle = e.c2; x.globalAlpha = 0.85;
+    x.beginPath(); x.moveTo(60, 0); x.quadraticCurveTo(70, 120, 128, 150); x.quadraticCurveTo(186, 120, 196, 0); x.closePath(); x.fill();   // 안장 무늬
+    x.globalAlpha = 1; x.fillStyle = e.c3;
+    for (const mx of [0, 256]) { x.beginPath(); x.ellipse(mx, 170, 40, 70, 0, 0, 7); x.fill(); }   // 흰 가슴·배털
+    x.lineWidth = 1.4;
+    for (let i = 0; i < 900; i++) {   // 아래로 빗겨진 털결
+      const px = R() * 256, py = R() * 256; x.strokeStyle = R() < 0.5 ? '#3a3e44' : '#d6d9dd'; x.globalAlpha = 0.22;
+      x.beginPath(); x.moveTo(px, py); x.quadraticCurveTo(px + 2, py + 4, px + (R() - 0.5) * 4, py + 8); x.stroke();
+    }
+    x.globalAlpha = 1;
+  } else if (e.pat === 'feather' || e.pat === 'duck') {   // 닭·오리 알: 겹겹이 쌓인 깃털 비늘 무늬
+    const g = x.createLinearGradient(0, 0, 0, 256); g.addColorStop(0, e.pat === 'feather' ? e.c3 : e.c1); g.addColorStop(1, e.c1);
+    x.fillStyle = g; x.fillRect(0, 0, 256, 256);
+    x.strokeStyle = e.c2; x.lineWidth = e.pat === 'feather' ? 2.5 : 1.6;
+    for (let row = 0; row < 15; row++) for (let col = 0; col < 12; col++) {
+      x.globalAlpha = 0.45 + R() * 0.35;
+      x.beginPath(); x.arc(col * 22 + (row % 2) * 11, row * 17, 11, 0.1 * Math.PI, 0.9 * Math.PI); x.stroke();
+      if (e.pat === 'feather') { x.beginPath(); x.moveTo(col * 22 + (row % 2) * 11, row * 17 - 2); x.lineTo(col * 22 + (row % 2) * 11, row * 17 + 9); x.stroke(); }   // 깃대
+    }
+    if (e.pat === 'duck') {   // 아래쪽: 물 위에 떠 있는 듯한 하늘색 물결
+      x.strokeStyle = e.c3; x.lineWidth = 3; x.globalAlpha = 0.7;
+      for (let k = 0; k < 4; k++) { x.beginPath(); for (let px = 0; px <= 256; px += 4) x.lineTo(px, 205 + k * 13 + Math.sin(px / 16 + k) * 4); x.stroke(); }
+    }
+    x.globalAlpha = 1;
+  } else if (e.pat === 'pig') {   // 돼지 알: 분홍 살결 + 옅은 털 점 + 아래쪽 진흙 얼룩
+    x.fillStyle = e.c2;
+    for (let i = 0; i < 120; i++) { x.globalAlpha = 0.25 + R() * 0.3; x.beginPath(); x.arc(R() * 256, R() * 256, 0.7 + R() * 1.2, 0, 7); x.fill(); }
+    x.fillStyle = e.c3;
+    for (let i = 0; i < 7; i++) {
+      const cx = R() * 256, cy = 170 + R() * 80;
+      for (let k = 0; k < 5; k++) { x.globalAlpha = 0.45 + R() * 0.3; x.beginPath(); x.ellipse(cx + (R() - 0.5) * 30, cy + (R() - 0.5) * 14, 6 + R() * 12, 3 + R() * 6, R(), 0, 7); x.fill(); }
+    }
+    x.globalAlpha = 1;
+  } else if (e.pat === 'cow') {   // 소 알: 큰 검은 얼룩 + 작은 갈색 점
+    x.fillStyle = e.c2;
+    for (let i = 0; i < 9; i++) {
+      const cx = R() * 256, cy = R() * 256;
+      for (let k = 0; k < 4; k++) { x.beginPath(); x.ellipse(cx + (R() - 0.5) * 30, cy + (R() - 0.5) * 24, 10 + R() * 16, 8 + R() * 12, R() * 3, 0, 7); x.fill(); }
+    }
+    x.fillStyle = e.c3;
+    for (let i = 0; i < 40; i++) { x.globalAlpha = 0.6 + R() * 0.4; x.beginPath(); x.arc(R() * 256, R() * 256, 1 + R() * 2.5, 0, 7); x.fill(); }
+    x.globalAlpha = 1;
+  } else if (e.pat === 'speckle' || e.pat === 'spots') {
     x.fillStyle = e.c2; const big = e.pat === 'spots';
     for (let i = 0; i < (big ? 70 : 900); i++) {
       x.beginPath();
@@ -512,13 +750,17 @@ function eggTexture(e) {
       for (let j = 0; j < 6; j++) { px += (R() - 0.5) * 40; py += (R() - 0.5) * 40; x.lineTo(px, py); }
       x.stroke();
     }
-  } else if (e.pat === 'zigzag') {
-    x.strokeStyle = e.c2; x.lineWidth = 5; x.shadowColor = e.c2; x.shadowBlur = 12;
-    for (let i = 0; i < 5; i++) {
-      let px = i * 51 + R() * 20; x.beginPath(); x.moveTo(px, 0);
-      for (let yy = 0, k = 0; yy <= 256; yy += 28, k++) { px += (k % 2 ? 18 : -18); x.lineTo(px, yy); }
-      x.stroke();
+  } else if (e.pat === 'ptera') {   // 프테라노돈 알: 적갈색 짧은 솜털결 + 앞쪽 아래 밝은 배 (텍스처 가장자리 x=0/256 이 앞쪽)
+    const g = x.createLinearGradient(0, 0, 0, 256); g.addColorStop(0, '#9a5a40'); g.addColorStop(0.5, e.c1); g.addColorStop(1, '#c48862');
+    x.fillStyle = g; x.fillRect(0, 0, 256, 256);
+    x.fillStyle = e.c3;
+    for (const mx of [0, 256]) { x.beginPath(); x.ellipse(mx, 180, 50, 62, 0, 0, 7); x.fill(); }
+    x.lineWidth = 1.1;
+    for (let i = 0; i < 800; i++) {   // 짧은 솜털
+      const px = R() * 256, py = R() * 256; x.strokeStyle = R() < 0.5 ? e.c2 : '#e0b090'; x.globalAlpha = 0.25;
+      x.beginPath(); x.moveTo(px, py); x.lineTo(px + (R() - 0.5) * 3, py + 4); x.stroke();
     }
+    x.globalAlpha = 1;
   } else if (e.pat === 'flame') {
     const g = x.createLinearGradient(0, 0, 0, 256); g.addColorStop(0, e.c1); g.addColorStop(1, e.c2);
     x.fillStyle = g; x.fillRect(0, 0, 256, 256);
@@ -536,6 +778,17 @@ function eggTexture(e) {
     for (let row = 0; row < 12; row++) for (let col = 0; col < 9; col++) {
       x.beginPath(); x.arc(col * 30 + (row % 2) * 15, row * 22, 14, 0.1 * Math.PI, 0.9 * Math.PI); x.stroke();
     }
+    if (e.belly) {   // 드래곤 알: 앞쪽(텍스처 가장자리 x=0/256) 아래로 이어지는 금빛 배 비늘판
+      x.shadowBlur = 0;
+      for (let py = 112; py < 250; py += 14) {
+        const hw = 30 - Math.abs(py - 175) * 0.08;   // 가운데가 조금 넓게
+        for (const mx of [0, 256]) {
+          x.fillStyle = '#8a5a1a'; x.fillRect(mx - hw - 1, py - 1, hw * 2 + 2, 13);
+          const g = x.createLinearGradient(0, py, 0, py + 11); g.addColorStop(0, '#ffe08a'); g.addColorStop(1, e.c3);
+          x.fillStyle = g; x.fillRect(mx - hw, py, hw * 2, 11);
+        }
+      }
+    }
   }
   return (eggTexCache[key] = new THREE.CanvasTexture(cv));
 }
@@ -546,8 +799,336 @@ function makeEggMesh(lv, g) {
   if (e.emap) { m.emissive = new THREE.Color(0xffffff); m.emissiveMap = tex; m.emissiveIntensity = e.emap; }
   else if (e.glow) { m.emissive = new THREE.Color(e.c1); m.emissiveIntensity = e.glow; }
   const me = mesh(EGG_GEO, m); me.scale.setScalar(EGG_SCALE);
+  if (e.ears) {   // 개 알: 늘어진 귀 / 돼지 알: 위로 솟았다 앞으로 접힌 귀
+    const em = mat(e.ears, { roughness: 0.7 });
+    [-1, 1].forEach(s => {
+      const ear = mesh(EAR_GEO, em);
+      if (e.earType === 'pig') { ear.position.set(s * 0.6, 0.62, 0.1); ear.scale.set(0.26, 0.34, 0.1); ear.rotation.set(0.5, 0, s * -0.6); }
+      else if (e.earType === 'wolf') {   // 늑대 귀: 위쪽에 쫑긋 선 뾰족한 세모 귀 + 안쪽 밝은 털
+        ear.geometry = WOLF_EAR_GEO; ear.position.set(s * 0.3, 0.86, 0.0); ear.scale.set(1, 1, 0.45); ear.rotation.z = s * -0.32;
+        const inner = mesh(WOLF_EAR_GEO, mat(0xeceef0, { roughness: 0.9 })); inner.position.set(0, -0.04, 0.09); inner.scale.set(0.62, 0.7, 0.6); ear.add(inner);
+      }
+      else if (e.earType === 'monkey') {   // 원숭이 귀: 옆으로 동그랗게 튀어나온 귀 + 안쪽 밝은 살색
+        ear.position.set(s * 0.63, 0.56, 0.02); ear.scale.set(0.07, 0.19, 0.17); ear.rotation.set(0, s * -0.45, s * -0.35);
+        const inner = mesh(EAR_GEO, mat(0xe8c69a, { roughness: 0.7 })); inner.position.set(s * 0.45, 0, 0); inner.scale.set(0.6, 0.68, 0.68); ear.add(inner);
+      }
+      else if (e.earType === 'capy') {   // 카피바라 귀: 위쪽 양옆의 아주 작고 둥근 귀
+        ear.position.set(s * 0.48, 0.74, -0.05); ear.scale.set(0.11, 0.12, 0.06); ear.rotation.z = s * -0.5;
+      }
+      else if (e.earType === 'lion') {   // 사자 귀: 갈기 사이로 나온 둥근 귀 + 안쪽 밝은 털
+        ear.position.set(s * 0.36, 0.9, 0.08); ear.scale.set(0.15, 0.14, 0.07); ear.rotation.z = s * -0.3;
+        const inner = mesh(EAR_GEO, mat(0xf3dcaa)); inner.position.set(0, -0.1, 0.55); inner.scale.set(0.6, 0.6, 0.5); ear.add(inner);
+      }
+      else if (e.earType === 'tiger') {   // 호랑이 귀: 위쪽의 둥근 귀, 뒷면 검정 + 흰 점, 앞면 안쪽 크림색
+        ear.position.set(s * 0.4, 0.82, 0.02); ear.scale.set(0.2, 0.19, 0.08); ear.rotation.z = s * -0.35;
+        const back = mesh(EAR_GEO, mat(0x15100a)); back.position.set(0, 0, -0.35); back.scale.set(0.95, 0.95, 0.75); ear.add(back);
+        const spot = mesh(EAR_GEO, mat(0xfff6e6)); spot.position.set(0, -0.05, -1.0); spot.scale.set(0.35, 0.35, 0.2); ear.add(spot);
+        const inner = mesh(EAR_GEO, mat(0xfff0d8)); inner.position.set(0, -0.1, 0.55); inner.scale.set(0.62, 0.62, 0.5); ear.add(inner);
+      }
+      else if (e.earType === 'cow') {   // 옆으로 뻗은 소 귀 + 안쪽 분홍
+        ear.position.set(s * 0.86, 0.42, 0.05); ear.scale.set(0.3, 0.13, 0.17); ear.rotation.z = s * 0.25;
+        const inner = mesh(EAR_GEO, mat(0xd99a8a)); inner.position.set(0, 0, 0.45); inner.scale.set(0.75, 0.6, 0.6); ear.add(inner);
+      }
+      else { ear.position.set(s * 0.74, 0.38, 0); ear.scale.set(0.2, 0.5, 0.36); ear.rotation.z = s * 0.3; }
+      me.add(ear);
+    });
+  }
+  if (e.snout) {   // 돼지 알: 앞쪽 돼지코 + 콧구멍 2개
+    const w = e.snoutW || 1;   // 소 코는 옆으로 넓게
+    const sn = mesh(SNOUT_GEO, mat(e.snout, { roughness: 0.6 })); sn.position.set(0, -0.12, 0.76); sn.rotation.x = Math.PI / 2; sn.scale.x = w; me.add(sn);
+    [-1, 1].forEach(s => { const h = mesh(EAR_GEO, mat(0x5a2a24)); h.position.set(s * 0.08 * w, -0.12, 0.84); h.scale.set(0.04, 0.06, 0.02); me.add(h); });
+  }
+  if (e.horns) {   // 소 알: 위쪽 작은 뿔 2개
+    const hm = mat(e.horns, { roughness: 0.5 });
+    [-1, 1].forEach(s => { const h = mesh(HORN_GEO, hm); h.position.set(s * 0.36, 0.86, 0); h.rotation.z = s * -0.5; me.add(h); });
+  }
+  if (e.feet) {   // 오리 알: 아래쪽 앞에 물갈퀴 발 2개 (발가락이 아래로)
+    const fm = mat(e.feet, { roughness: 0.55 });
+    [-1, 1].forEach(s => {
+      const f = mesh(FOOT_GEO, fm); f.position.set(s * 0.3, -0.66, 0.5);
+      f.rotation.set(-0.55, 0, Math.PI + s * 0.15); f.scale.set(1, 1, 0.28); me.add(f);
+    });
+  }
+  if (e.claws) {   // 늑대 알: 아래쪽 양옆에 발톱 달린 발 2개
+    const cm = mat(e.claws, { roughness: 0.5, metalness: 0.3 });
+    [-1, 1].forEach(s => {
+      const foot = mesh(EAR_GEO, cm); foot.position.set(s * 0.5, -0.86, 0.18); foot.scale.set(0.24, 0.13, 0.26); me.add(foot);
+      [-1, 0, 1].forEach(k => {
+        const c = mesh(HORN_GEO, cm); c.position.set(s * 0.5 + k * 0.09, -0.92, 0.42);
+        c.rotation.set(Math.PI / 2 + 0.5, 0, 0); c.scale.set(0.5, 0.45, 0.5); me.add(c);
+      });
+    });
+  }
+  if (e.yuzu) {   // 카피바라 알: 머리 위에 올린 유자 + 잎
+    const yz = mesh(EAR_GEO, mat(0xffa21a, { roughness: 0.45 })); yz.position.set(0, 1.12, -0.02); yz.scale.set(0.2, 0.18, 0.2); me.add(yz);
+    const lf = mesh(EAR_GEO, mat(0x3f9a3a, { roughness: 0.6 })); lf.position.set(0.08, 1.31, 0); lf.scale.set(0.11, 0.025, 0.05); lf.rotation.z = 0.4; me.add(lf);
+  }
+  if (e.mane) {   // 사자 알: 위아래(회전축) 방향으로 흘러내리는 매끈한 갈기 — 세로로 볼록한 갈기 결이 알을 빙 둘러쌈 (가닥·가시 없이 매끈하게)
+    const surfR = y => Math.sqrt(Math.max(0, 1 - y * y)) * (0.78 - 0.1 * y);   // 알 표면의 반지름
+    const y0 = -0.5, y1 = 0.66, N = 16, BULGE = 0.17, PTS = 32;               // N: 세로 갈기 결의 개수
+    const prof = [new THREE.Vector2(surfR(y0) - 0.01, y0)];
+    for (let i = 0; i <= PTS; i++) {   // 아래→위 순서 (면이 바깥을 향함). 위쪽이 두툼하고 아래로 갈수록 얇아지며 흘러내림
+      const t = i / PTS, y = y0 + (y1 - y0) * t;
+      prof.push(new THREE.Vector2(surfR(y) + 0.01 + BULGE * Math.pow(Math.sin(Math.PI * t), 0.8) * (0.45 + 0.55 * t), y));
+    }
+    prof.push(new THREE.Vector2(surfR(y1) - 0.01, y1));
+    const geo = new THREE.LatheGeometry(prof, 96), pos = geo.attributes.position, col = [];
+    const cA = new THREE.Color(e.mane[1]), cB = new THREE.Color(e.mane[0]), cD = new THREE.Color(e.mane[2] ?? e.mane[0]), tmp = new THREE.Color();
+    for (let k = 0; k < pos.count; k++) {
+      const x = pos.getX(k), y = pos.getY(k), z = pos.getZ(k), r = Math.hypot(x, z), base = surfR(y) + 0.01;
+      const ph = Math.atan2(x, z), w = 0.5 + 0.5 * Math.cos(N * ph);           // 세로 결: 1 = 볼록한 결, 0 = 결 사이 골
+      if (r > base) {                                                          // 바깥면만 결 모양으로 (안쪽 테두리는 그대로)
+        const nr = base + (r - base) * (0.55 + 0.45 * w);
+        pos.setX(k, x / r * nr); pos.setZ(k, z / r * nr);
+      }
+      const yt = (y - y0) / (y1 - y0);
+      tmp.copy(cB).lerp(cA, 0.35 + 0.65 * w).lerp(cD, Math.max(0, 0.35 - yt) * 1.2);   // 결은 밝게, 골은 진하게, 아래 끝은 더 진하게
+      col.push(tmp.r, tmp.g, tmp.b);
+    }
+    geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+    geo.computeVertexNormals();
+    me.add(mesh(geo, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.5, side: THREE.DoubleSide })));
+  }
+  if (e.tailTuft) {   // 사자 알: 뒤쪽으로 뻗은 꼬리 + 끝의 털뭉치
+    const tm = mat(e.c1 ? new THREE.Color(e.c1).getHex() : 0xd9a441, { roughness: 0.7 }), dir = new THREE.Vector3(0, 0.55, -0.85).normalize();
+    const tl = mesh(TAIL_GEO, tm); tl.position.set(0, -0.48, -0.72).addScaledVector(dir, 0.25); tl.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir); me.add(tl);
+    const tf = mesh(EAR_GEO, mat(e.tailTuft, { roughness: 0.9 })); tf.position.set(0, -0.48, -0.72).addScaledVector(dir, 0.52); tf.scale.set(0.1, 0.13, 0.1); me.add(tf);
+  }
+  const UP = new THREE.Vector3(0, 1, 0);
+  // base에서 dir 방향으로 len 길이의 원뿔(뿔·꼬리)을 붙임
+  const spike = (geo, m, base, dir, len, w = 1) => {
+    const d = dir.clone().normalize(), c = mesh(geo, m);
+    c.quaternion.setFromUnitVectors(UP, d); c.scale.set(w, len / geo.parameters.height, w);
+    c.position.copy(base).addScaledVector(d, len / 2); me.add(c); return c;
+  };
+  if (e.trike) {   // 트리케라톱스 알: 뒤로 젖혀진 큰 목 방패(프릴) + 가장자리 돌기 + 뿔 3개
+    const t = e.trike, fm = mat(t.frill, { roughness: 0.7 }), rm = mat(t.rim, { roughness: 0.7 }), hm = mat(t.horn, { roughness: 0.45 });
+    const fr = new THREE.Group(); fr.position.set(0, 0.62, -0.32); fr.rotation.x = -0.55; me.add(fr);
+    const disc = mesh(EAR_GEO, fm); disc.scale.set(0.82, 0.66, 0.07); fr.add(disc);
+    const rim = mesh(EAR_GEO, rm); rim.position.z = -0.02; rim.scale.set(0.9, 0.73, 0.06); fr.add(rim);   // 진한 테두리
+    for (let i = 0; i <= 10; i++) {   // 테두리를 따라 뾰족한 돌기
+      const a = 0.1 * Math.PI + i / 10 * 0.8 * Math.PI, k = mesh(HORN_GEO, rm);
+      k.position.set(Math.cos(a) * 0.9, Math.sin(a) * 0.73, -0.02); k.rotation.z = a - Math.PI / 2; k.scale.set(0.8, 0.55, 0.5); fr.add(k);
+    }
+    [-1, 1].forEach(s => spike(HORN_GEO, hm, new THREE.Vector3(s * 0.22, 0.48, 0.55), new THREE.Vector3(s * 0.18, 0.55, 0.82), 0.6, 1.1));   // 이마 뿔 2개 (길게)
+    spike(HORN_GEO, hm, new THREE.Vector3(0, -0.04, 0.74), new THREE.Vector3(0, 0.5, 0.87), 0.26, 0.9);                                       // 코 뿔 1개 (짧게)
+  }
+  if (e.brachio) {   // 브라키오사우루스 알: 위로 길게 솟은 목 (얼굴 없음) + 굵은 다리 4개 + 짧은 꼬리
+    const b = e.brachio, sk = mat(b.skin, { roughness: 0.7 }), dk = mat(b.dark, { roughness: 0.7 });
+    const neck = new THREE.CatmullRomCurve3([new THREE.Vector3(0, 0.7, 0.2), new THREE.Vector3(0, 1.1, 0.32), new THREE.Vector3(0, 1.45, 0.36), new THREE.Vector3(0, 1.72, 0.5)]);
+    me.add(mesh(new THREE.TubeGeometry(neck, 20, 0.12, 10, false), sk));
+    const nb = mesh(EAR_GEO, sk); nb.position.set(0, 0.72, 0.2); nb.scale.set(0.2, 0.14, 0.2); me.add(nb);          // 목 뿌리
+    const tip = mesh(EAR_GEO, sk); tip.position.set(0, 1.72, 0.5); tip.scale.setScalar(0.12); me.add(tip);   // 목 끝 (얼굴 없이 둥글게 마무리)
+    [[0.3, 0.32], [0.3, -0.32]].forEach(([x0, z0]) => [-1, 1].forEach(s => {   // 굵은 다리 4개 + 발톱 쪽 진한 발
+      const lg = mesh(LEG_GEO, sk); lg.position.set(s * x0, -0.82, z0); me.add(lg);
+      const ft = mesh(EAR_GEO, dk); ft.position.set(s * x0, -1.0, z0 + 0.02); ft.scale.set(0.11, 0.04, 0.12); me.add(ft);
+    }));
+    spike(TAIL_CONE_GEO, sk, new THREE.Vector3(0, -0.4, -0.66), new THREE.Vector3(0, -0.25, -1), 0.5);   // 짧고 굵은 꼬리
+  }
+  if (e.dome) {   // 앙키케팔로사우루스 알: 위쪽을 덮은 두꺼운 뼈 돔 + 돔 둘레의 뼈 혹 + 뒤로 곧게 뻗은 꼬리
+    const d = e.dome, cm = mat(d.cap, { roughness: 0.4 }), km = mat(d.knob, { roughness: 0.5 });
+    const surfR = y => Math.sqrt(Math.max(0, 1 - y * y)) * (0.78 - 0.1 * y);
+    const prof = [new THREE.Vector2(0.0001, 1.09)];
+    for (let i = 1; i <= 12; i++) { const y = 1 - i / 12 * 0.62; prof.push(new THREE.Vector2(surfR(y) * 1.1 + 0.02, y * 1.04 + 0.04)); }   // 볼록하게 부푼 돔 바깥면
+    prof.push(new THREE.Vector2(surfR(0.36) - 0.02, 0.34));   // 아래 테두리를 안쪽으로 닫음
+    me.add(mesh(new THREE.LatheGeometry(prof.reverse(), 36), cm));   // 아래→위 순서여야 면이 바깥을 향함
+    for (let i = 0; i < 18; i++) {   // 돔 아래 둘레를 빙 두른 둥근 뼈 혹
+      const a = i / 18 * Math.PI * 2, r = surfR(0.4) + 0.08, k = mesh(EAR_GEO, km);
+      k.position.set(Math.sin(a) * r, 0.42, Math.cos(a) * r); k.scale.setScalar(0.065 + (i % 2) * 0.015); me.add(k);
+    }
+    for (let i = 0; i < 9; i++) {   // 뒤·옆쪽의 뾰족한 뼈 혹 (한 줄 더)
+      const a = Math.PI * 0.45 + i / 8 * Math.PI * 1.1, r = surfR(0.22) - 0.02, out = new THREE.Vector3(Math.sin(a), 0.35, Math.cos(a));
+      spike(HORN_GEO, km, new THREE.Vector3(Math.sin(a) * r, 0.22, Math.cos(a) * r), out, 0.16, 0.9);
+    }
+    spike(TAIL_CONE_GEO, mat(d.skin, { roughness: 0.7 }), new THREE.Vector3(0, -0.3, -0.66), new THREE.Vector3(0, 0.05, -1), 0.6, 0.85);   // 곧게 뻗은 꼬리
+  }
+  // ---------- 초원 알 (얼굴·머리 없이 몸의 특징만) ----------
+  // base에서 dir 방향으로 길쭉한 타원체 (깃털·꼬리깃)
+  const blob = (m, base, dir, len, w, t) => {
+    const d = dir.clone().normalize(), b = mesh(EAR_GEO, m);
+    b.quaternion.setFromUnitVectors(UP, d); b.scale.set(w, len / 2, t);
+    b.position.copy(base).addScaledVector(d, len / 2); me.add(b); return b;
+  };
+  const tube = (m, pts, r) => me.add(mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts.map(p => new THREE.Vector3(...p))), 32, r, 8, false), m));
+  const ball = (m, p, sx, sy = sx, sz = sx) => { const b = mesh(EAR_GEO, m); b.position.set(...p); b.scale.set(sx, sy, sz); me.add(b); return b; };
+  if (e.wings) {   // 닭·오리 알: 양옆에 몸에 붙여 접은 날개 + 뒤쪽 끝의 날개깃
+    const wm = mat(e.wings.c, { roughness: 0.75 }), tm = mat(e.wings.tip, { roughness: 0.75 });
+    [-1, 1].forEach(s => {
+      const w = new THREE.Group(); w.position.set(s * 0.72, 0.02, -0.05); w.rotation.set(0.35, 0, s * 0.12); me.add(w);
+      const main = mesh(EAR_GEO, wm); main.scale.set(0.08, 0.3, 0.42); w.add(main);
+      for (let k = 0; k < 3; k++) {
+        const f = mesh(EAR_GEO, tm); f.position.set(s * 0.012, -0.06 - k * 0.08, -0.3 + k * 0.03);
+        f.scale.set(0.05, 0.065, 0.22); f.rotation.x = 0.45 + k * 0.15; w.add(f);
+      }
+    });
+  }
+  if (e.beak) {   // 닭 알: 앞쪽에 튀어나온 뾰족한 닭 부리 (조금 긴 윗부리 + 짧은 아랫부리)
+    const bm = mat(e.beak, { roughness: 0.4 });
+    spike(HORN_GEO, bm, new THREE.Vector3(0, 0.3, 0.68), new THREE.Vector3(0, -0.15, 1), 0.24, 1.15);   // 윗부리
+    spike(HORN_GEO, bm, new THREE.Vector3(0, 0.23, 0.69), new THREE.Vector3(0, -0.4, 1), 0.15, 0.85);   // 아랫부리
+  }
+  if (e.tailFan) {   // 닭 알: 뒤쪽 위로 부채처럼 솟은 꼬리깃
+    const fm = e.tailFan.map(c => mat(c, { roughness: 0.5 }));
+    for (let i = 0; i < 5; i++)
+      blob(fm[i % fm.length], new THREE.Vector3(0, 0.15, -0.64), new THREE.Vector3((i - 2) * 0.3, 1, -0.85), 0.55 + (i % 2) * 0.14, 0.075, 0.04);
+  }
+  if (e.chickFeet) {   // 닭 알: 아래쪽 노란 닭발 (짧은 다리 + 앞발가락 3개 + 뒷발가락 1개)
+    const fm = mat(e.chickFeet, { roughness: 0.6 });
+    [-1, 1].forEach(s => {
+      const lg = mesh(LEG_GEO, fm); lg.position.set(s * 0.22, -0.9, 0.08); lg.scale.set(0.35, 0.5, 0.35); me.add(lg);
+      const base = new THREE.Vector3(s * 0.22, -1.0, 0.1);
+      [-0.45, 0, 0.45].forEach(dx => spike(HORN_GEO, fm, base, new THREE.Vector3(dx, 0, 1), 0.26, 0.45));
+      spike(HORN_GEO, fm, base, new THREE.Vector3(0, 0, -1), 0.12, 0.45);
+    });
+  }
+  if (e.curlTail) {   // 돼지 알: 뒤쪽에 돌돌 말린 꼬리
+    const pts = [[0, 0.05, -0.68]];
+    for (let i = 0; i <= 24; i++) { const t = i / 24 * Math.PI * 3; pts.push([Math.sin(t) * 0.075, 0.05 + Math.cos(t) * 0.075,-0.76 - t * 0.03]); }
+    tube(mat(e.curlTail, { roughness: 0.5 }), pts, 0.028);
+  }
+  if (e.legs) {   // 돼지·소 알: 아래쪽 짧은 다리 4개 + 진한 발굽
+    const lm = mat(e.legs.leg, { roughness: 0.6 }), hm = mat(e.legs.hoof, { roughness: 0.4 }), h = e.legs.h;
+    [[0.3, 0.32], [0.3, -0.32]].forEach(([x0, z0]) => [-1, 1].forEach(s => {
+      const hf = mesh(LEG_GEO, hm); hf.position.set(s * x0, -0.977, z0); hf.scale.set(0.95, 0.12, 0.95); me.add(hf);
+      const lg = mesh(LEG_GEO, lm); lg.position.set(s * x0, -0.954 + 0.19 * h, z0); lg.scale.set(0.9, h, 0.9); me.add(lg);
+      const sp = mesh(new THREE.BoxGeometry(0.012, 0.05, 0.08), mat(0x1a1a1a)); sp.position.set(s * x0, -0.977, z0 + 0.07); me.add(sp);   // 갈라진 발굽
+    }));
+  }
+  if (e.dogTail) {   // 개 알: 뒤쪽에서 위로 말려 올라간 꼬리 + 흰 꼬리 끝
+    const tm = mat(e.dogTail.c, { roughness: 0.8 });
+    tube(tm, [[0, -0.05, -0.68], [0, 0.12, -0.95], [0, 0.42, -1.02], [0, 0.6, -0.88]], 0.065);
+    ball(tm, [0, -0.05, -0.68], 0.07);
+    ball(mat(e.dogTail.tip, { roughness: 0.9 }), [0, 0.62, -0.86], 0.085, 0.1, 0.085);
+  }
+  if (e.paws) {   // 개·원숭이·호랑이·사자 알: 앞쪽 아래에 동그란 앞발 2개 + 발가락 (색 하나 또는 { c, toe, size })
+    const P = typeof e.paws === 'object' ? e.paws : { c: e.paws }, k0 = P.size || 1;
+    const pm = mat(P.c, { roughness: 0.8 }), tm = P.toe !== undefined ? mat(P.toe, { roughness: 0.8 }) : pm;
+    [-1, 1].forEach(s => {
+      ball(pm, [s * 0.27, -0.92, 0.42], 0.14 * k0, 0.08 * k0, 0.17 * k0);
+      [-1, 0, 1].forEach(k => ball(tm, [s * 0.27 + k * 0.07 * k0, -0.93, 0.42 + 0.15 * k0], 0.045 * k0));
+    });
+  }
+  if (e.monkey) {   // 원숭이 알: 앞쪽에 붙은 바나나 + 뒤쪽 길게 말려 올라간 꼬리
+    const M = e.monkey, am = mat(M.arm, { roughness: 0.85 });
+    const bm = mat(M.banana, { roughness: 0.5 });
+    tube(bm, [[-0.3, 0.07, 0.75], [-0.12, -0.04, 0.83], [0.12, -0.04, 0.83], [0.3, 0.07, 0.75]], 0.055);   // 바나나
+    [-1, 1].forEach(s => {
+      ball(mat(0x5a3a1a), [s * 0.31, 0.08, 0.74], 0.03);   // 바나나 꼭지·끝
+    });
+    tube(am, [[0, -0.4, -0.7], [0, -0.3, -0.95], [0, 0.1, -1.05], [0, 0.5, -0.98], [0, 0.75, -0.8], [0, 0.82, -0.62], [0, 0.7, -0.55], [0, 0.62, -0.65]], 0.04);   // 꼬리
+    ball(am, [0, 0.62, -0.65], 0.04);
+  }
+  if (e.wolfTail) {   // 늑대 알: 뒤쪽 아래로 늘어진 복슬복슬한 꼬리 + 진한 꼬리 끝
+    const tm = mat(e.wolfTail.c, { roughness: 0.95 }), dir = new THREE.Vector3(0, -0.6, -1).normalize(), base = new THREE.Vector3(0, -0.1, -0.66);
+    blob(tm, base, dir, 0.8, 0.17, 0.17);
+    blob(tm, base.clone().add(new THREE.Vector3(0, 0.04, 0)), dir, 0.62, 0.2, 0.15);   // 뿌리 쪽이 더 풍성하게
+    const tip = ball(mat(e.wolfTail.tip, { roughness: 0.95 }), [0, 0, 0], 0.1, 0.13, 0.1);
+    tip.position.copy(base).addScaledVector(dir, 0.74); tip.quaternion.setFromUnitVectors(UP, dir);
+  }
+  if (e.stripedTail) {   // 호랑이 알: 뒤쪽에서 아래로 내려갔다 위로 휘어 올라간 꼬리 + 검은 고리 줄무늬 + 검은 꼬리 끝
+    const T = e.stripedTail, bm = mat(T.band, { roughness: 0.6 });
+    const curve = new THREE.CatmullRomCurve3([[0, -0.3, -0.68], [0, -0.48, -0.98], [0, -0.22, -1.16], [0, 0.22, -1.14], [0, 0.48, -0.98]].map(p => new THREE.Vector3(...p)));
+    me.add(mesh(new THREE.TubeGeometry(curve, 32, 0.05, 8, false), mat(T.c, { roughness: 0.6 })));
+    const ringGeo = new THREE.TorusGeometry(0.052, 0.018, 6, 16), Z = new THREE.Vector3(0, 0, 1);
+    [0.22, 0.37, 0.52, 0.67, 0.82].forEach(t => {
+      const r = mesh(ringGeo, bm); r.position.copy(curve.getPointAt(t)); r.quaternion.setFromUnitVectors(Z, curve.getTangentAt(t)); me.add(r);
+    });
+    ball(bm, [0, 0.49, -0.97], 0.06, 0.08, 0.06);
+  }
+  if (e.udder) {   // 소 알: 아래쪽 분홍 젖통 + 젖꼭지 4개
+    const um = mat(e.udder, { roughness: 0.55 });
+    ball(um, [0, -0.9, -0.08], 0.22, 0.12, 0.2);
+    [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(([a, b]) => spike(HORN_GEO, um, new THREE.Vector3(a * 0.08, -0.99, -0.08 + b * 0.08), new THREE.Vector3(0, -1, 0), 0.09, 0.45));
+  }
+  if (e.cowTail) {   // 소 알: 뒤쪽에 길게 늘어진 꼬리 + 끝의 검은 털뭉치
+    tube(mat(e.cowTail.c, { roughness: 0.6 }), [[0, 0.25, -0.7], [0, 0.05, -0.84], [0, -0.35, -0.88], [0, -0.6, -0.84]], 0.025);
+    ball(mat(e.cowTail.tuft, { roughness: 0.95 }), [0, -0.68, -0.83], 0.06, 0.11, 0.06);
+  }
+  if (e.duckTail) {   // 오리 알: 뒤쪽 위로 살짝 들린 짧은 꼬리깃
+    const dm = mat(e.duckTail, { roughness: 0.7 });
+    for (let i = 0; i < 3; i++) blob(dm, new THREE.Vector3(0, 0, -0.72), new THREE.Vector3((i - 1) * 0.35, 0.8, -1), 0.3, 0.08, 0.04);
+  }
+  const eggR = y => Math.sqrt(Math.max(0, 1 - y * y)) * (0.78 - 0.1 * y);   // 알 표면의 반지름
+  if (e.trex) {   // 티렉스 알: 아주 작은 두 팔 + 굵은 허벅지와 세 발가락 발 + 등줄기 돌기 + 굵고 긴 꼬리
+    const T = e.trex, sk = mat(T.skin, { roughness: 0.7 }), dk = mat(T.dark, { roughness: 0.7 }), cl = mat(T.claw, { roughness: 0.4 });
+    [-1, 1].forEach(s => {
+      // 앞쪽의 아주 작은 팔 (짧은 팔 + 발톱 2개)
+      tube(sk, [[s * 0.3, 0.16, 0.66], [s * 0.3, 0.06, 0.84], [s * 0.27, -0.04, 0.9]], 0.035);
+      ball(sk, [s * 0.3, 0.16, 0.66], 0.05);
+      [-0.04, 0.04].forEach(dx => spike(HORN_GEO, cl, new THREE.Vector3(s * 0.27 + dx, -0.04, 0.9), new THREE.Vector3(0, -1, 0.5), 0.08, 0.3));
+      // 굵은 허벅지 + 정강이 + 앞으로 뻗은 세 발가락과 발톱
+      ball(sk, [s * 0.62, -0.42, 0], 0.2, 0.3, 0.32);
+      const lg = mesh(LEG_GEO, sk); lg.position.set(s * 0.48, -0.8, 0.06); lg.scale.set(1.15, 0.65, 1.15); me.add(lg);
+      const base = new THREE.Vector3(s * 0.48, -0.99, 0.1);
+      [-0.4, 0, 0.4].forEach(dx => {
+        const d = new THREE.Vector3(dx, 0, 1).normalize();
+        spike(HORN_GEO, sk, base, d, 0.24, 0.65);
+        spike(HORN_GEO, cl, base.clone().addScaledVector(d, 0.2), new THREE.Vector3(d.x, -0.4, d.z), 0.1, 0.4);   // 발톱
+      });
+    });
+    for (let y = 0.85; y > -0.3; y -= 0.13) ball(dk, [0, y, -eggR(y) - 0.005], 0.045, 0.05, 0.04);   // 등줄기 돌기
+    spike(TAIL_CONE_GEO, sk, new THREE.Vector3(0, -0.25, -0.62), new THREE.Vector3(0, -0.18, -1), 0.8, 1.6);   // 굵고 긴 꼬리
+  }
+  if (e.ptera) {   // 프테라노돈 알: 양옆으로 길게 뻗은 가죽 날개 + 날개 앞쪽 갈고리 손가락 + 작은 발톱 발 + 아주 짧은 꼬리
+    const P = e.ptera, V = (...p) => new THREE.Vector3(...p);
+    const bm = mat(P.bone, { roughness: 0.6 }), em = mat(P.edge, { roughness: 0.7 }), cm = mat(P.claw, { roughness: 0.4 }), body = mat(P.body, { roughness: 0.8 });
+    const mm = new THREE.MeshStandardMaterial({ color: P.memb, roughness: 0.7, side: THREE.DoubleSide });
+    [-1, 1].forEach(s => {
+      const root = V(s * 0.68, 0.25, 0.0), wrist = V(s * 1.05, 0.4, 0.14), tip = V(s * 1.8, 0.3, -0.28);
+      const mid = V(s * 1.2, 0.02, -0.34), back = V(s * 0.62, -0.28, -0.16);
+      const mg = new THREE.BufferGeometry().setFromPoints([root, wrist, tip, root, tip, mid, root, mid, back]); mg.computeVertexNormals();
+      me.add(mesh(mg, mm));                                                                  // 가죽 날개막 (끝이 뾰족하고 길게)
+      tube(em, [tip.toArray(), tip.clone().lerp(mid, 0.5).add(V(0, -0.04, 0)).toArray(), mid.toArray(), mid.clone().lerp(back, 0.5).add(V(0, -0.03, 0)).toArray(), back.toArray()], 0.018);   // 진한 날개 가장자리
+      tube(bm, [root.toArray(), root.clone().lerp(wrist, 0.5).add(V(0, 0.04, 0)).toArray(), wrist.toArray()], 0.045);   // 팔
+      tube(bm, [wrist.toArray(), wrist.clone().lerp(tip, 0.5).add(V(0, 0.05, 0)).toArray(), tip.toArray()], 0.028);     // 아주 긴 날개 손가락
+      ball(bm, root.toArray(), 0.07); ball(bm, wrist.toArray(), 0.05);
+      [-0.05, 0, 0.05].forEach(dy => spike(HORN_GEO, cm, wrist.clone().add(V(0, dy, 0.02)), V(s * 0.2, dy * 4 + 0.2, 1), 0.1, 0.35));   // 갈고리 손가락 3개
+      // 아래 작은 발 + 발톱 3개
+      const lg = mesh(LEG_GEO, body); lg.position.set(s * 0.22, -0.9, -0.02); lg.scale.set(0.4, 0.5, 0.4); me.add(lg);
+      [-0.35, 0, 0.35].forEach(dx => spike(HORN_GEO, cm, V(s * 0.22, -1.0, 0.0), V(dx, -0.1, 1), 0.16, 0.4));
+    });
+    spike(HORN_GEO, body, V(0, -0.35, -0.7), V(0, -0.3, -1), 0.16, 0.9);   // 아주 짧은 꼬리
+  }
+  if (e.dragon) {   // 드래곤 알: 등 양쪽의 박쥐 같은 막 날개 + 등줄기 금빛 가시 + 끝이 스페이드인 꼬리
+    const D = e.dragon, bm = mat(D.bone, { roughness: 0.5, metalness: 0.15 }), gm = mat(D.gold, { roughness: 0.35, metalness: 0.55 });
+    const mm = new THREE.MeshStandardMaterial({ color: D.memb, emissive: 0x200006, roughness: 0.6, side: THREE.DoubleSide });
+    const V = (...p) => new THREE.Vector3(...p);
+    [-1, 1].forEach(s => {
+      const root = V(s * 0.42, 0.45, -0.5), elbow = V(s * 0.95, 0.98, -0.72);
+      const fingers = [V(s * 1.42, 1.18, -0.6), V(s * 1.38, 0.58, -0.8), V(s * 1.12, 0.12, -0.84), V(s * 0.62, 0.02, -0.66)];
+      // 막: 팔꿈치에서 손가락 끝들로 부채꼴
+      const pts = [];
+      for (let i = 0; i < fingers.length - 1; i++) pts.push(elbow, fingers[i], fingers[i + 1]);
+      pts.push(elbow, fingers[fingers.length - 1], root);
+      const mg = new THREE.BufferGeometry().setFromPoints(pts); mg.computeVertexNormals();
+      me.add(mesh(mg, mm));
+      // 뼈대: 팔 + 손가락 3개 + 팔꿈치의 금빛 발톱
+      tube(bm, [root.toArray(), root.clone().lerp(elbow, 0.5).add(V(0, 0.06, 0)).toArray(), elbow.toArray()], 0.045);
+      fingers.slice(0, 3).forEach(f => tube(bm, [elbow.toArray(), elbow.clone().lerp(f, 0.5).toArray(), f.toArray()], 0.022));
+      ball(bm, root.toArray(), 0.07);
+      spike(HORN_GEO, gm, elbow, V(s * 0.3, 1, 0), 0.16, 0.6);
+    });
+    for (let y = 0.9; y > -0.45; y -= 0.15) {   // 등줄기를 따라 금빛 가시 (위가 크고 아래로 작아짐)
+      const r = eggR(y), len = 0.1 + (y + 0.45) * 0.07;
+      spike(HORN_GEO, gm, V(0, y, -r + 0.02), V(0, y * 0.5, -1), len, 0.8);
+    }
+    const curve = new THREE.CatmullRomCurve3([V(0, -0.4, -0.66), V(0, -0.62, -0.98), V(0.22, -0.78, -1.24), V(0.5, -0.82, -1.32)]);
+    me.add(mesh(new THREE.TubeGeometry(curve, 24, 0.055, 8, false), bm));
+    ball(bm, [0, -0.4, -0.66], 0.08);
+    const sp = spike(new THREE.ConeGeometry(0.14, 0.26, 4), gm, curve.getPoint(1), curve.getTangent(1), 0.26, 1);   // 스페이드 꼬리 끝
+    sp.scale.z *= 0.3;
+  }
   return me;
 }
+const LEG_GEO = new THREE.CylinderGeometry(0.1, 0.11, 0.38, 10);
+const TAIL_CONE_GEO = new THREE.ConeGeometry(0.13, 0.5, 10);
+const MANE_GEO = new THREE.ConeGeometry(0.075, 0.75, 5);   // 갈기 한 가닥 (길고 가늘게)
+const TAIL_GEO = new THREE.CylinderGeometry(0.03, 0.04, 0.5, 8);
+const FOOT_GEO = new THREE.ConeGeometry(0.2, 0.36, 3);   // 세모난 물갈퀴
+const EAR_GEO = new THREE.SphereGeometry(1, 14, 10);
+const SNOUT_GEO = new THREE.CylinderGeometry(0.22, 0.24, 0.12, 20);
+const HORN_GEO = new THREE.ConeGeometry(0.08, 0.28, 10);
+const WOLF_EAR_GEO = new THREE.ConeGeometry(0.17, 0.38, 4);   // 늑대 귀 (납작하게 눌러 세모 모양으로)
 const OUTLINE_MAT = new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.BackSide });
 
 // =====================================================================
@@ -573,6 +1154,29 @@ function cowMat() {
   return mat(0xffffff, { map: texCache.cow });
 }
 
+const UNIT_SPH = new THREE.SphereGeometry(1, 16, 12);
+// 공룡 비늘 피부 텍스처: 바탕색 + 작은 비늘 + 얼룩 (+ 선택: 등 무늬 띠)
+function dinoSkin(key, base, dark, light, bands) {
+  const k = 'dino-' + key; if (texCache[k]) return texCache[k];
+  const cv = document.createElement('canvas'); cv.width = cv.height = 256; const x = cv.getContext('2d');
+  const R = rngFn(key.length * 131 + 7);
+  x.fillStyle = base; x.fillRect(0, 0, 256, 256);
+  if (bands) { x.fillStyle = dark; x.globalAlpha = 0.55; for (let i = 0; i < 9; i++) { const bx = i * 28 + R() * 8; x.beginPath(); x.ellipse(bx, 128, 5 + R() * 4, 70 + R() * 30, 0, 0, 7); x.fill(); } }
+  x.globalAlpha = 0.25; for (let i = 0; i < 26; i++) { x.fillStyle = R() < 0.5 ? dark : light; x.beginPath(); x.ellipse(R() * 256, R() * 256, 8 + R() * 18, 6 + R() * 12, R() * 3, 0, 7); x.fill(); }
+  x.globalAlpha = 0.3; x.strokeStyle = dark; x.lineWidth = 1;
+  for (let yy = 0; yy < 256; yy += 7) for (let xx = (yy / 7 % 2) * 4; xx < 256; xx += 8) { x.beginPath(); x.arc(xx, yy, 3.6, 0.1 * Math.PI, 0.9 * Math.PI); x.stroke(); }
+  x.globalAlpha = 1;
+  return (texCache[k] = new THREE.CanvasTexture(cv));
+}
+const dinoMat = (key, base, dark, light, bands, o = {}) => mat(0xffffff, Object.assign({ map: dinoSkin(key, base, dark, light, bands), roughness: 0.8 }, o));
+// 드래곤 날개 막: 바깥쪽(x+)으로 펼쳐지고 뒤쪽 가장자리가 물결 모양
+const DRAGON_WING_GEO = (() => {
+  const s = new THREE.Shape();
+  s.moveTo(0, 0.35); s.lineTo(1.1, 0.75); s.lineTo(2.1, 0.55); s.lineTo(2.9, 0.1);
+  s.quadraticCurveTo(2.45, -0.15, 2.3, -0.65); s.quadraticCurveTo(1.95, -0.35, 1.6, -1.05);
+  s.quadraticCurveTo(1.25, -0.6, 0.85, -1.15); s.quadraticCurveTo(0.5, -0.65, 0.05, -0.75); s.lineTo(0, 0.35);
+  return new THREE.ShapeGeometry(s);
+})();
 function makeAnimal(type, targetH) {
   const g = new THREE.Group(), legs = [], wings = [];
   const M = c => (c instanceof THREE.Material) ? c : mat(c);
@@ -587,6 +1191,29 @@ function makeAnimal(type, targetH) {
   const pair = f => [-1, 1].forEach(f);
   const wing = (sd, y, z, w, d, c) => { const p = new THREE.Group(); p.position.set(sd * 0.3, y, z); box(w, 0.06, d, c, sd * w / 2, 0, 0, p); g.add(p); wings.push(p); };
   const W = 0xfafafa, BLK = 0x111111;
+  // ---- 공룡·드래곤용 섬세한 모델 도구 ----
+  // 부모 지정 가능한 공 (단위 구 재사용)
+  const sph = (p, r, c, x, y, z, sx = 1, sy = 1, sz = 1) => { const m = mesh(UNIT_SPH, M(c)); m.position.set(x, y, z); m.scale.set(r * sx, r * sy, r * sz); p.add(m); return m; };
+  const spike = (p, r, h, c, x, y, z, rx = 0, ry = 0, rz = 0) => { const m = mesh(new THREE.ConeGeometry(r, h, 8), M(c)); m.position.set(x, y, z); m.rotation.set(rx, ry, rz); p.add(m); return m; };
+  // 점들을 부드럽게 잇는 사슬 (목·꼬리·다리): 굵기가 r0 → r1로 점점 변함, 곡선 반환
+  // 매끈한 관: 곡선을 따라 굵기가 r0 → r1로 변하고 양 끝은 둥글게 막음
+  const chain = (p, pts, r0, r1, c, n = 16) => {
+    const cur = new THREE.CatmullRomCurve3(pts.map(a => new THREE.Vector3(a[0], a[1], a[2])));
+    const TS = Math.max(8, n * 2), RS = 14, geo = new THREE.TubeGeometry(cur, TS, 1, RS, false), pos = geo.attributes.position, P = new THREE.Vector3();
+    for (let i = 0; i <= TS; i++) {
+      const t = i / TS, r = r0 + (r1 - r0) * t; cur.getPointAt(t, P);
+      for (let j = 0; j <= RS; j++) { const k = i * (RS + 1) + j; pos.setXYZ(k, P.x + (pos.getX(k) - P.x) * r, P.y + (pos.getY(k) - P.y) * r, P.z + (pos.getZ(k) - P.z) * r); }
+    }
+    geo.computeVertexNormals();
+    p.add(mesh(geo, M(c)));
+    const a = cur.getPointAt(0), b = cur.getPointAt(1);
+    sph(p, r0, c, a.x, a.y, a.z); sph(p, r1, c, b.x, b.y, b.z);
+    return cur;
+  };
+  // 다리 관절 그룹 (엉덩이/어깨가 회전 중심) — 걷기 애니메이션에 쓰임
+  const limb = (x, y, z) => { const p = new THREE.Group(); p.position.set(x, y, z); g.add(p); legs.push(p); return p; };
+  // 발톱 3개
+  const claws = (p, x, y, z, s, c, spread = 0.12) => [-1, 0, 1].forEach(k => spike(p, 0.05 * s, 0.22 * s, c, x + k * spread * s, y, z, Math.PI / 2 + 0.35, 0, 0));
 
   switch (type) {
     case 'chicken': {
@@ -656,7 +1283,11 @@ function makeAnimal(type, targetH) {
     case 'capybara': {
       const C = 0x9a6a3e;
       box(0.8, 0.7, 1.3, C, 0, 0.65, 0); legs4(0.8, 1.3, 0.3, 0.2, C);
-      box(0.5, 0.5, 0.65, C, 0, 0.85, 0.85); box(0.42, 0.3, 0.1, 0x5a3a20, 0, 0.8, 1.18); eyes(0.2, 0.98, 0.95);
+      box(0.5, 0.5, 0.65, C, 0, 0.85, 0.85); box(0.42, 0.3, 0.1, 0x5a3a20, 0, 0.8, 1.18);
+      pair(s => {   // 눈: 머리 옆면 위쪽에 (원래는 머리 안에 묻혀 안 보였음)
+        ball(0.075, 0x2a1a10, s * 0.25, 1.0, 0.98, 0.6, 1, 1);           // 눈 (옆으로 살짝 튀어나옴)
+        ball(0.022, 0xffffff, s * 0.29, 1.03, 1.0);                        // 반짝임
+      });
       pair(s => ball(0.07, 0x6a4a2a, s * 0.18, 1.12, 0.68));
       break;
     }
@@ -677,20 +1308,58 @@ function makeAnimal(type, targetH) {
       break;
     }
     case 'brachio': {
-      const Bl = 0x6f8fa8;
-      ball(1, Bl, 0, 2.3, 0, 0.9, 0.75, 1.4); legs4(1.2, 1.8, 1.8, 0.3, Bl);
-      cyl(0.22, 0.38, 3, Bl, 0, 3.6, 1.3, 0.4); box(0.4, 0.35, 0.65, Bl, 0, 5.0, 2.0); eyes(0.15, 5.08, 2.25);
-      cone(0.4, 2.6, Bl, 0, 2.1, -2.3, -Math.PI / 2 - 0.15);
+      // 브라키오사우루스: 앞다리가 뒷다리보다 길어 등이 앞으로 높고, 목을 높이 세움, 작은 머리 위 볼록한 콧등 볏, 짧고 굵은 꼬리
+      const SK = dinoMat('brachio', '#64808e', '#3e5662', '#9fb4b8'), BEL = mat(0xc9d2c4, { roughness: 0.85 }), NAIL = 0x3a3330;
+      const body = sph(g, 1, SK, 0, 3.1, 0, 1.05, 1.0, 1.75); body.rotation.x = -0.2;    // 앞이 높은 몸통
+      { const b = sph(g, 0.85, BEL, 0, 2.75, 0.15, 1.0, 0.8, 1.5); b.rotation.x = -0.2; } // 밝은 배
+      sph(g, 0.75, SK, 0, 3.55, 1.2, 1.0, 0.95, 0.9);                                        // 어깨 (높게)
+      chain(g, [[0, 3.7, 1.4], [0, 4.9, 2.0], [0, 6.2, 2.35], [0, 7.4, 2.55]], 0.6, 0.27, SK, 22);   // 긴 목
+      const hd = new THREE.Group(); hd.position.set(0, 7.55, 2.7); g.add(hd);
+      sph(hd, 0.32, SK, 0, 0, 0.12, 0.9, 0.78, 1.25);                                        // 머리
+      sph(hd, 0.2, SK, 0, 0.22, 0.0, 0.85, 0.9, 1.0);                                        // 콧등 볏 (볼록)
+      sph(hd, 0.22, SK, 0, -0.07, 0.38, 0.85, 0.6, 1.0);                                     // 주둥이
+      sph(hd, 0.18, BEL, 0, -0.17, 0.3, 0.85, 0.4, 1.1);                                     // 아래턱
+      [-1, 1].forEach(s => { sph(hd, 0.06, 0xf4f0e0, s * 0.24, 0.08, 0.2); sph(hd, 0.035, BLK, s * 0.28, 0.08, 0.23); sph(hd, 0.03, BLK, s * 0.07, 0.24, 0.12); });   // 눈 + 콧구멍(볏 위)
+      chain(g, [[0, 3.0, -1.6], [0, 2.7, -2.8], [0, 2.2, -3.9], [0, 1.9, -4.9]], 0.65, 0.07, SK, 18);   // 꼬리
+      // 다리: 기둥 같은 다리 + 넓은 발 + 발톱 (앞다리가 더 김)
+      [[-1, 1], [1, 1], [-1, -1], [1, -1]].forEach(([sx, sz]) => {
+        const front = sz > 0, hy = front ? 3.0 : 2.6, p = limb(sx * 0.68, hy, front ? 1.15 : -1.05);
+        sph(p, front ? 0.45 : 0.6, SK, 0, -0.35, 0, 0.85, 1.25, 1.0);                        // 허벅지·어깨 근육
+        chain(p, [[0, -0.6, 0], [0, -hy * 0.55, front ? 0.05 : -0.1], [0, -hy + 0.25, 0]], front ? 0.33 : 0.38, 0.3, SK, 10);
+        sph(p, 0.36, SK, 0, -hy + 0.14, 0.05, 1.05, 0.4, 1.15);                              // 넓적한 발
+        claws(p, 0, -hy + 0.1, 0.38, 1.0, NAIL, 0.13);
+      });
       break;
     }
     case 'anky': {
-      const A = 0x8a6a4a;
-      ball(0.7, A, 0, 1.5, 0, 1, 0.85, 1.4); cyl(0.2, 0.28, 0.6, A, 0, 2.0, 0.75, 0.6); ball(0.42, 0xc9a07a, 0, 2.35, 1.0, 1, 1.05, 1);
-      for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI * 2; cone(0.06, 0.18, 0xf5ecd0, Math.cos(a) * 0.4, 2.15, 1.0 + Math.sin(a) * 0.4); }
-      eyes(0.2, 2.3, 1.35);
-      pair(s => { leg(s * 0.35, 1.1, 0, 1.1, 0.28, A); box(0.12, 0.4, 0.12, A, s * 0.45, 1.5, 0.7); });
-      for (let k = 0; k < 5; k++) pair(s => cone(0.12, 0.35, 0x5a4a3a, s * 0.3, 2.05 - k * 0.05, 0.5 - k * 0.4));
-      cone(0.3, 1.6, A, 0, 1.4, -1.6, -Math.PI / 2 - 0.2);
+      // 박치기 공룡 (두꺼운 돔 머리): 두 발로 서고 몸은 수평, 둥근 뼈 돔 + 돔 뒤·옆의 뼈 혹, 부리 모양 주둥이, 짧은 팔, 곧게 뻗은 꼬리
+      const SK = dinoMat('anky', '#8a6a4a', '#5a4230', '#c9a37a', true), BEL = mat(0xdcc196, { roughness: 0.85 });
+      const DOME = mat(0xd9b88a, { roughness: 0.45 }), KNOB = 0xf1e4c4, BEAK = 0x4a3a2c;
+      sph(g, 0.75, SK, 0, 2.0, 0, 0.92, 0.85, 1.4);                                          // 몸통 (수평)
+      sph(g, 0.62, BEL, 0, 1.82, 0.12, 0.88, 0.7, 1.2);                                      // 배
+      chain(g, [[0, 2.25, 0.85], [0, 2.6, 1.25], [0, 2.85, 1.55]], 0.42, 0.3, SK, 10);       // 목
+      const hd = new THREE.Group(); hd.position.set(0, 3.0, 1.75); g.add(hd);
+      sph(hd, 0.44, DOME, 0, 0.2, -0.05, 1.0, 0.95, 1.05);                                   // 두꺼운 뼈 돔
+      sph(hd, 0.33, SK, 0, -0.08, 0.22, 0.85, 0.78, 1.15);                                   // 얼굴
+      sph(hd, 0.18, SK, 0, -0.16, 0.5, 0.75, 0.6, 1.0);                                      // 주둥이
+      spike(hd, 0.08, 0.16, BEAK, 0, -0.18, 0.68, Math.PI / 2);                              // 부리 끝
+      for (let i = 0; i <= 8; i++) {                                                          // 돔 뒤·옆 둘레의 뼈 혹
+        const a = Math.PI * 0.35 + i / 8 * Math.PI * 1.3;
+        spike(hd, 0.055, 0.17, KNOB, Math.cos(a) * 0.4, 0.02, -0.05 - Math.sin(a) * 0.38, 0, a, -Math.PI / 2);   // 바깥쪽을 향함
+      }
+      [-1, 1].forEach(s => {
+        spike(hd, 0.04, 0.12, KNOB, s * 0.18, -0.05, 0.52, -0.6, 0, s * 0.3);              // 주둥이 위 작은 혹
+        sph(hd, 0.06, 0xf4f0e0, s * 0.27, 0.0, 0.3); sph(hd, 0.035, BLK, s * 0.31, 0.0, 0.33);   // 눈
+      });
+      chain(g, [[0, 2.05, -1.0], [0, 1.95, -2.1], [0, 1.85, -3.1], [0, 1.8, -3.9]], 0.55, 0.06, SK, 18);   // 곧은 꼬리
+      [-1, 1].forEach(s => { chain(g, [[s * 0.5, 1.95, 0.75], [s * 0.55, 1.65, 0.95], [s * 0.5, 1.5, 1.1]], 0.1, 0.07, SK, 6); spike(g, 0.03, 0.1, KNOB, s * 0.5, 1.42, 1.17, Math.PI); });   // 짧은 팔
+      [-1, 1].forEach(s => {                                                                   // 튼튼한 두 다리
+        const p = limb(s * 0.48, 1.85, -0.1);
+        sph(p, 0.48, SK, 0, -0.3, 0, 0.75, 1.15, 1.0);                                         // 허벅지
+        chain(p, [[0, -0.7, 0.05], [0, -1.2, -0.25], [0, -1.7, -0.05]], 0.25, 0.15, SK, 10);   // 정강이 → 발목
+        sph(p, 0.2, SK, 0, -1.78, 0.2, 0.9, 0.4, 1.5);                                        // 발
+        claws(p, 0, -1.8, 0.45, 0.9, KNOB);
+      });
       break;
     }
     case 'ptera': {
@@ -702,26 +1371,80 @@ function makeAnimal(type, targetH) {
       break;
     }
     case 'trex': {
-      const Gn = 0x3f8f3a;
-      ball(1, Gn, 0, 3.4, 0, 1.4, 1.6, 2.2); ball(1, 0x9ccf6a, 0, 3.1, 0.6, 1.1, 1.3, 1.6);
-      cyl(0.7, 0.9, 1.6, Gn, 0, 4.8, 1.6, 0.5); box(1.3, 1.1, 2.0, Gn, 0, 5.75, 2.6); box(1.15, 0.38, 1.8, Gn, 0, 5.05, 2.7);
-      for (let k = 0; k < 5; k++) cone(0.08, 0.25, W, -0.45 + k * 0.22, 5.15, 3.5, Math.PI);
-      eyes(0.55, 6.05, 2.9, 0xffd000, 0.15);
-      cone(1.0, 4.5, Gn, 0, 3.3, -3.8, -Math.PI / 2 - 0.15);
-      pair(s => { box(0.22, 0.7, 0.22, Gn, s * 0.9, 3.7, 1.8); leg(s * 0.95, 2.6, 0, 2.6, 0.8, Gn); });
-      for (let k = 0; k < 6; k++) cone(0.25, 0.7, 0x245c22, 0, 5.0 - k * 0.15, 0.9 - k * 0.7, -0.4);
+      // 티렉스: 몸을 수평으로 두고 긴 꼬리로 균형, 거대한 머리와 이빨, 아주 작은 두 손가락 팔, 굵은 허벅지 + 새처럼 세 발가락
+      const SK = dinoMat('trex', '#4f6e36', '#2e4520', '#8a9a55', true), BEL = mat(0xc2b680, { roughness: 0.85 });
+      const TOOTH = 0xf6f0dc, MOUTH = 0x7a1e1e, CLAW = 0x2a2420;
+      sph(g, 1, SK, 0, 3.05, 0, 1.0, 1.0, 1.6);                                              // 몸통
+      sph(g, 0.85, BEL, 0, 2.75, 0.35, 0.95, 0.85, 1.3);                                     // 밝은 배·가슴
+      chain(g, [[0, 3.4, 1.2], [0, 3.95, 1.85], [0, 4.15, 2.35]], 0.78, 0.6, SK, 10);        // 굵은 목
+      const hd = new THREE.Group(); hd.position.set(0, 4.25, 2.55); g.add(hd);
+      sph(hd, 0.62, SK, 0, 0.18, 0.45, 0.85, 0.72, 1.45);                                    // 위턱·두개골 (길쭉)
+      sph(hd, 0.5, SK, 0, 0.12, -0.05, 0.95, 0.85, 0.9);                                     // 뒤통수 (넓음)
+      sph(hd, 0.46, MOUTH, 0, -0.12, 0.6, 0.72, 0.25, 1.3);                                  // 입 안
+      { const j = sph(hd, 0.5, BEL, 0, -0.32, 0.5, 0.75, 0.3, 1.38); j.rotation.x = 0.12; }  // 아래턱 (살짝 벌림)
+      [-1, 1].forEach(s => {
+        for (let k = 0; k < 7; k++) spike(hd, 0.04, 0.17, TOOTH, s * 0.36, -0.05, 0.12 + k * 0.17, Math.PI);   // 윗니
+        for (let k = 0; k < 6; k++) spike(hd, 0.035, 0.14, TOOTH, s * 0.31, -0.22, 0.2 + k * 0.17);           // 아랫니
+        sph(hd, 0.1, 0xffc21a, s * 0.43, 0.35, 0.28); sph(hd, 0.05, BLK, s * 0.51, 0.35, 0.31);               // 노란 눈 + 동공
+        sph(hd, 0.12, SK, s * 0.36, 0.48, 0.28, 1, 0.45, 1.4);                                                // 눈두덩
+        sph(hd, 0.03, BLK, s * 0.12, 0.3, 1.12);                                                              // 콧구멍
+      });
+      chain(g, [[0, 3.15, -1.4], [0, 3.05, -2.6], [0, 2.8, -3.9], [0, 2.55, -5.1]], 0.88, 0.1, SK, 20);   // 긴 꼬리
+      for (let k = 0; k < 9; k++) spike(g, 0.07, 0.2, 0x2e4520, 0, 4.0 - k * 0.12, 1.2 - k * 0.7, -0.3);  // 등 돌기
+      [-1, 1].forEach(s => {                                                                   // 아주 작은 팔 (발가락 2개)
+        chain(g, [[s * 0.72, 2.95, 1.15], [s * 0.82, 2.65, 1.35], [s * 0.78, 2.45, 1.55]], 0.13, 0.08, SK, 6);
+        [-1, 1].forEach(k => spike(g, 0.03, 0.12, CLAW, s * 0.78 + k * 0.04, 2.38, 1.63, Math.PI / 2 + 0.6));
+      });
+      [-1, 1].forEach(s => {                                                                   // 굵은 다리: 허벅지 → 정강이 → 발등 → 세 발가락
+        const p = limb(s * 0.78, 2.85, -0.2);
+        sph(p, 0.62, SK, 0, -0.45, 0, 0.8, 1.3, 1.05);
+        chain(p, [[0, -1.05, -0.05], [0, -1.7, -0.4], [0, -2.25, -0.15], [0, -2.68, 0.15]], 0.34, 0.2, SK, 12);
+        sph(p, 0.26, SK, 0, -2.74, 0.4, 1.0, 0.4, 1.4);
+        claws(p, 0, -2.76, 0.75, 1.5, CLAW, 0.11);
+      });
       break;
     }
     case 'dragon': {
-      const Dr = 0x8a1a2a, Gd = 0xffb020;
+      // 드래곤: 네 발 + 박쥐 같은 막 날개, S자로 휜 긴 목, 뒤로 휜 뿔, 등·꼬리를 따라 금빛 가시, 금빛 배 비늘판, 빛나는 눈, 꼬리 끝 스페이드
+      const SK = dinoMat('dragon', '#8a1a2a', '#4a0a14', '#c2384a', false, { emissive: 0x2a0008, roughness: 0.55, metalness: 0.15 });
+      const GOLD = mat(0xe0a83a, { roughness: 0.35, metalness: 0.55 }), HORN = 0xf0e2c0, CLAW = 0x2a1a14;
+      const MEMB = new THREE.MeshStandardMaterial({ color: 0x6a0e1e, emissive: 0x200006, roughness: 0.6, side: THREE.DoubleSide });
       const eyeM = mat(0xffee00, { emissive: 0xffaa00, emissiveIntensity: 2 });
-      ball(0.8, mat(Dr, { emissive: 0x330008 }), 0, 1.6, 0, 1, 0.9, 1.5); ball(0.7, Gd, 0, 1.45, 0.3, 0.8, 0.7, 1.1);
-      legs4(1.1, 1.8, 1.1, 0.25, Dr);
-      cyl(0.25, 0.4, 1.2, Dr, 0, 2.3, 1.1, 0.6); box(0.6, 0.5, 0.9, Dr, 0, 2.75, 1.55); eyes(0.18, 2.88, 1.95, eyeM, 0.07);
-      pair(s => cone(0.08, 0.5, 0xf5ecd0, s * 0.2, 3.1, 1.3, -0.5));
-      pair(s => wing(s, 2.1, 0, 2.2, 1.4, 0x5a0a1a));
-      cone(0.35, 2.4, Dr, 0, 1.5, -2.2, -Math.PI / 2 - 0.15);
-      for (let k = 0; k < 5; k++) cone(0.1, 0.3, Gd, 0, 2.3 - k * 0.12, 0.5 - k * 0.45);
+      sph(g, 0.8, SK, 0, 1.75, 0, 1.0, 0.9, 1.5);                                            // 몸통
+      for (let k = 0; k < 6; k++) sph(g, 0.5, GOLD, 0, 1.18 + k * 0.02, 0.85 - k * 0.32, 1.15, 0.28, 0.6);   // 배 비늘판
+      const neck = chain(g, [[0, 2.05, 1.0], [0, 2.7, 1.45], [0, 3.15, 1.6], [0, 3.45, 1.95]], 0.45, 0.27, SK, 16);   // S자 목
+      chain(g, [[0, 1.9, 1.12], [0, 2.53, 1.6], [0, 2.98, 1.76], [0, 3.27, 2.1]], 0.36, 0.19, GOLD, 16);   // 목 아랫면 금빛 비늘 띠
+      const hd = new THREE.Group(); hd.position.set(0, 3.55, 2.2); g.add(hd);
+      sph(hd, 0.33, SK, 0, 0, 0, 0.92, 0.8, 1.15);                                           // 머리
+      sph(hd, 0.23, SK, 0, -0.06, 0.4, 0.82, 0.62, 1.35);                                    // 긴 주둥이
+      sph(hd, 0.2, GOLD, 0, -0.17, 0.32, 0.75, 0.3, 1.3);                                    // 아래턱
+      [-1, 1].forEach(s => {
+        const h1 = spike(hd, 0.075, 0.6, HORN, s * 0.2, 0.3, -0.25, -1.0, 0, s * -0.3);    // 위·뒤로 뻗은 큰 뿔
+        spike(hd, 0.05, 0.3, HORN, s * 0.3, 0.05, -0.2, -1.3, 0, s * -0.8);                  // 옆 작은 뿔
+        sph(hd, 0.075, eyeM, s * 0.26, 0.1, 0.18); sph(hd, 0.03, BLK, s * 0.32, 0.1, 0.2, 0.5, 1.6, 0.6);   // 빛나는 눈 + 세로 동공
+        sph(hd, 0.1, SK, s * 0.24, 0.2, 0.15, 1, 0.45, 1.4);                                 // 눈두덩
+        sph(hd, 0.03, BLK, s * 0.08, 0.04, 0.6);                                             // 콧구멍
+        spike(hd, 0.025, 0.1, HORN, s * 0.13, -0.12, 0.6, Math.PI);                          // 송곳니
+      });
+      const tail = chain(g, [[0, 1.75, -1.1], [0, 1.5, -2.2], [0, 1.25, -3.2], [0, 1.15, -4.1]], 0.52, 0.06, SK, 20);   // 긴 꼬리
+      { const tp = tail.getPoint(1); const sp = spike(g, 0.28, 0.5, GOLD, 0, tp.y, tp.z - 0.2, -Math.PI / 2); sp.scale.set(1, 1, 0.25); }   // 꼬리 끝 스페이드
+      for (let k = 0; k < 8; k++) { const v = neck.getPoint(k / 7); spike(g, 0.06, 0.2, GOLD, 0, v.y + 0.3 - k * 0.01, v.z - 0.05, -0.5); }   // 목 가시
+      for (let k = 0; k < 6; k++) spike(g, 0.09, 0.32, GOLD, 0, 2.5 - k * 0.04, 0.9 - k * 0.38, -0.4);       // 등 가시
+      for (let k = 1; k < 9; k++) { const v = tail.getPoint(k / 9); spike(g, 0.08 - k * 0.006, 0.26 - k * 0.018, GOLD, 0, v.y + 0.45 - k * 0.04, v.z, -0.5); }   // 꼬리 가시
+      [[-1, 1], [1, 1], [-1, -1], [1, -1]].forEach(([sx, sz]) => {                           // 네 다리 (관절 + 발톱)
+        const front = sz > 0, p = limb(sx * 0.6, 1.55, front ? 0.75 : -0.7);
+        sph(p, front ? 0.34 : 0.45, SK, 0, -0.2, 0, 0.85, 1.2, 1.0);
+        chain(p, [[0, -0.5, 0], [0, -0.95, front ? 0.15 : -0.2], [0, -1.42, 0.05]], 0.2, 0.14, SK, 8);
+        sph(p, 0.17, SK, 0, -1.47, 0.18, 1.0, 0.45, 1.4);
+        claws(p, 0, -1.5, 0.4, 0.9, CLAW);
+      });
+      [-1, 1].forEach(s => {                                                                   // 박쥐 같은 막 날개 (날갯짓 그룹)
+        const p = new THREE.Group(); p.position.set(s * 0.45, 2.35, 0.35); g.add(p); wings.push(p);
+        const mb = mesh(DRAGON_WING_GEO, MEMB); mb.rotation.x = Math.PI / 2; mb.scale.set(s, 1, 1); p.add(mb);
+        chain(p, [[0, 0, 0.35], [s * 1.1, 0.02, 0.75], [s * 2.1, 0.03, 0.55], [s * 2.9, 0.04, 0.1]], 0.08, 0.03, SK, 14);   // 날개 앞쪽 뼈
+        [[2.3, -0.65], [1.6, -1.05], [0.85, -1.15]].forEach(([fx, fz]) => chain(p, [[s * 1.1, 0.02, 0.75], [s * fx, 0.02, fz]], 0.04, 0.02, SK, 8));   // 날개 손가락 뼈
+        spike(p, 0.04, 0.16, HORN, s * 1.1, 0.06, 0.82, 0.4);                                 // 날개 관절 발톱
+      });
       break;
     }
   }
@@ -737,7 +1460,7 @@ function makeAnimal(type, targetH) {
 //  화면 방향: 휴대폰은 항상 가로 (세로로 들면 게임 전체를 90° 돌려서 보여 줌), 컴퓨터는 그대로
 // =====================================================================
 const IS_TOUCH = matchMedia('(pointer: coarse)').matches || navigator.maxTouchPoints > 0 || /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
-const GAME_VER = '2026-10-29g';   // 타이틀 화면 아래에 표시 (최신 버전인지 확인용)
+const GAME_VER = '2026-11-07a';   // 타이틀 화면 아래에 표시 (최신 버전인지 확인용)
 let ROT = false, VW = innerWidth, VH = innerHeight;   // VW × VH = 게임 화면 크기 (항상 가로가 더 김)
 function layout() {
   ROT = IS_TOUCH && innerHeight > innerWidth;
@@ -1106,14 +1829,15 @@ function groundAt(x) {
 const penGroups = [], penVis = [], penSigns = [];
 let farmVis = [], slotMarks = [];
 for (let k = 0; k < PEN_N; k++) { const g = new THREE.Group(); world.add(g); penGroups.push(g); penVis.push([]); }
-const slotPos = (i, k = myPen) => new THREE.Vector3(-13.8 - Math.floor(i / 4) * 2.9, 0, penZ(k) - 5.25 + (i % 4) * 3.5);   // 우리 안 5 × 4 칸
+const slotPos = (i, k = myPen) => new THREE.Vector3(-13.4 - Math.floor(i / 8) * 1.7, 0, penZ(k) - 5.95 + (i % 8) * 1.7);   // 우리 안 8 × 8 칸
 const penSlots = k => k === myPen ? SAVE.slots : (penOwner(k) || {}).slots || [];
 // 빈 칸 표시 (내 우리만): 바닥 링 + 칸 번호
+const MARK_R = 0.42;
 const MARK_MAT = mat(0xfff3c0, { emissive: 0x665522, roughness: 0.5 }), MARK_ON = mat(0xffcc33, { emissive: 0xffaa00, emissiveIntensity: 0.9 });
 const markNoTex = [];
 function slotMark(i) {
   const g = new THREE.Group();
-  const ring = mesh(new THREE.TorusGeometry(0.5, 0.07, 6, 24), MARK_MAT, false); ring.rotation.x = Math.PI / 2; ring.position.y = 0.06; g.add(ring);
+  const ring = mesh(new THREE.TorusGeometry(MARK_R, 0.06, 6, 24), MARK_MAT, false); ring.rotation.x = Math.PI / 2; ring.position.y = 0.06; g.add(ring);
   const no = textSprite([{ text: String(i + 1), font: 'bold 80px Arial', color: '#fff8d0', y: 64 }], 128, 128, 0.7, false);
   no.position.y = 0.45; g.add(no);
   g.ring = ring; return g;
@@ -1128,7 +1852,7 @@ function rebuildPen(k) {
     const s = slots[i];
     if (!s) {
       vis.push(null);
-      if (own) { const m = slotMark(i); m.position.copy(p); grp.add(m); slotMarks[i] = m; }
+      // 빈 칸 표시(바닥 동그라미)는 없앰 — 우리 안 아무 데서나 E를 누르면 가장 가까운 빈 자리에 놓임
       continue;
     }
     if (!isHatched(s)) {
@@ -1138,7 +1862,8 @@ function rebuildPen(k) {
       const egg = makeEggMesh(s.lv, s.g); egg.position.set(p.x, 0.47 + EGG_SCALE, p.z); grp.add(egg);
       if (s.g === SECRET) { const h = halo(0xff4dd2, 2); h.position.copy(egg.position); grp.add(h); }
       const label = liveLabel(); label.position.set(p.x, 1.7, p.z); grp.add(label);
-      label.draw(`⏳ 부화까지 ${minSec(growLeft(s) / (night ? NIGHT_MULT : 1))}`);
+      if (s.hold) label.draw('🚫 동물 자리 없음 · 대기 중', '#ff9a9a');
+      else label.draw(`⏳ 부화까지 ${minSec(Math.max(0, growLeft(s)) / (night ? NIGHT_MULT : 1))}`);
       vis.push({ kind: 'egg', egg, label, s });
     } else {
       const a = animalOf(s.lv, s.g);
@@ -1158,7 +1883,65 @@ function rebuildPen(k) {
 }
 // 내 우리가 바뀜 → 다시 그림
 function rebuildFarm() { rebuildPen(myPen); NET.send({ t: 'pen', slots: SAVE.slots }); }   // 바뀐 내 우리를 친구들에게도 알림
-function rebuildAllPens() { for (let k = 0; k < PEN_N; k++) rebuildPen(k); drawPenSigns(); }
+function rebuildAllPens() { for (let k = 0; k < PEN_N; k++) rebuildPen(k); drawPenSigns(); placeUpSign(); }
+
+// ---------- 우리 업그레이드 표지판: 내 우리 입구 앞. 업그레이드 1번마다 동물 +5마리 ----------
+// 버튼 색: 돈이 충분하면 초록, 모자라면 빨강, 최고 레벨이면 회색. 버튼을 클릭(터치)하거나 앞에서 E
+const upSign = new THREE.Group(); world.add(upSign);
+const UPC = document.createElement('canvas'); UPC.width = 512; UPC.height = 384;
+const upTex = new THREE.CanvasTexture(UPC);
+const UP_BTN = { x: 56, y: 250, w: 400, h: 100 };   // 캔버스 위 버튼 자리
+const upFace = new THREE.Mesh(new THREE.PlaneGeometry(1.9, 1.425), new THREE.MeshBasicMaterial({ map: upTex }));
+{
+  const wd = mat(0x8e5a2b);
+  [-0.7, 0.7].forEach(z => { const post = mesh(new THREE.BoxGeometry(0.14, 1.3, 0.14), wd); post.position.set(-0.05, 0.65, z); upSign.add(post); });
+  const board = mesh(new THREE.BoxGeometry(0.1, 1.55, 2.0), wd); board.position.y = 1.95; upSign.add(board);
+  upFace.rotation.y = Math.PI / 2; upFace.position.set(0.06, 1.95, 0); upSign.add(upFace);   // 농장 쪽(+x)을 바라봄
+}
+let upKey = '';
+function placeUpSign() { upSign.position.set(PEN.x1 + 1.5, 0, penZ(myPen) - 3.7); upKey = ''; updatePenSign(); }
+function updatePenSign() {
+  if (!SAVE) return;
+  const lv = penLv(), max = lv >= PEN_UP.length, cost = PEN_UP[lv], ok = !max && SAVE.money >= cost, nA = animalCount();
+  const key = lv + '|' + ok + '|' + nA;
+  if (key === upKey) return;
+  upKey = key;
+  const x = UPC.getContext('2d');
+  x.fillStyle = '#5a3a1e'; x.fillRect(0, 0, 512, 384);
+  x.fillStyle = '#f6e7c8'; x.save(); x.translate(12, 12); roundRect(x, 488, 360, 26); x.restore();
+  x.textAlign = 'center'; x.textBaseline = 'middle';
+  x.fillStyle = '#5a3a1e'; x.font = 'bold 46px Malgun Gothic'; x.fillText('🏡 우리 업그레이드', 256, 62);
+  x.fillStyle = '#3a2a1a'; x.font = 'bold 36px Malgun Gothic'; x.fillText(`Lv.${lv + 1} · 동물 ${nA}/${penCap()}마리`, 256, 128);
+  x.fillStyle = '#7a6a5a'; x.font = 'bold 30px Malgun Gothic';
+  x.fillText(max ? '최고 레벨이에요!' : `업그레이드하면 동물 ${penCap() + PEN_STEP_CAP}마리까지`, 256, 190);
+  x.fillStyle = max ? '#8a8a8a' : ok ? '#2fbf4a' : '#e0393e';
+  x.save(); x.translate(UP_BTN.x, UP_BTN.y); roundRect(x, UP_BTN.w, UP_BTN.h, 22); x.restore();
+  x.fillStyle = '#fff'; x.font = 'bold 44px Malgun Gothic';
+  x.fillText(max ? 'MAX' : `⬆ 업그레이드 $${fmt(cost)}`, 256, UP_BTN.y + UP_BTN.h / 2 + 2);
+  upTex.needsUpdate = true;
+}
+const nearUpSign = () => Math.hypot(P.pos.x - upSign.position.x, P.pos.z - upSign.position.z) < 2.4 && P.pos.y < 2;
+function tryUpgradePen() {
+  const lv = penLv();
+  if (lv >= PEN_UP.length) { toast('🏡 우리가 이미 최고 레벨이에요!', 1.6); return; }
+  const cost = PEN_UP[lv];
+  if (SAVE.money < cost) { sfx('tick'); toast(`💸 돈이 부족해요! $${fmt(cost)} 필요 (지금 $${fmt(SAVE.money)})`, 2); return; }
+  SAVE.money -= cost; SAVE.penLv = lv + 1;
+  sfx('buy'); save(); upKey = ''; updatePenSign();
+  toast(`🏡 우리 Lv.${lv + 2}!\n이제 동물을 ${penCap()}마리까지 키울 수 있어요`, 2.6);
+}
+// 표지판의 버튼을 클릭(터치) — 마우스가 잠겨 있으면 화면 가운데(조준점)로 판단
+const upRay = new THREE.Raycaster();
+cvs.addEventListener('pointerdown', e => {
+  if (state !== 'play' || ROT) return;
+  const r = cvs.getBoundingClientRect();
+  const ndc = locked ? new THREE.Vector2(0, 0) : new THREE.Vector2((e.clientX - r.left) / r.width * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+  upRay.setFromCamera(ndc, camera);
+  const hit = upRay.intersectObject(upFace)[0];
+  if (!hit || !hit.uv || hit.distance > 14) return;
+  const px = hit.uv.x * 512, py = (1 - hit.uv.y) * 384;
+  if (px >= UP_BTN.x && px <= UP_BTN.x + UP_BTN.w && py >= UP_BTN.y && py <= UP_BTN.y + UP_BTN.h) tryUpgradePen();
+});
 function drawPenSigns() {
   penSigns.forEach((s, k) => {
     const o = penOwner(k);
@@ -1170,6 +1953,7 @@ let farmTick = 0;
 function updateFarm(dt) {
   farmTick -= dt;
   const check = farmTick <= 0; if (check) farmTick = 0.5;
+  if (settleHatches()) { save(); NET.send({ t: 'pen', slots: SAVE.slots }); }   // 내 우리: 동물 최대치 안에서만 부화 (자리가 나면 기다리던 알부터) — 실제 부화 모습은 아래에서 바뀜
   for (let k = 0; k < PEN_N; k++) {
   let rebuild = false;
   penVis[k].forEach(v => {
@@ -1178,11 +1962,12 @@ function updateFarm(dt) {
       v.egg.rotation.y += dt;
       if (check) {
         const left = growLeft(v.s);
-        if (left <= 0) {
+        if (isHatched(v.s)) {
           const a = animalOf(v.s.lv, v.s.g);
           if (k === myPen) { sfx('hatch'); toast(`🐣 ${a.name}이(가) 태어났다!\n초당 +${fmt(a.inc)} 💰`, 2.5); }
           rebuild = true;
-        } else v.label.draw(`⏳ 부화까지 ${minSec(left / (night ? NIGHT_MULT : 1))}${night ? ' 🌙' : ''}`, night ? '#b8c8ff' : '#fff');
+        } else if (v.s.hold) v.label.draw('🚫 동물 자리 없음 · 대기 중', '#ff9a9a');
+        else v.label.draw(`⏳ 부화까지 ${minSec(left / (night ? NIGHT_MULT : 1))}${night ? ' 🌙' : ''}`, night ? '#b8c8ff' : '#fff');
       }
     } else {
       // 동물이 자기 자리 근처를 돌아다님
@@ -1222,7 +2007,9 @@ function updateFarm(dt) {
 const HW = 0.35, PH = 1.7, G = 28, RUN = 8, JUMP = 12;
 const farmSpawn = () => new THREE.Vector3(-9, 0, penZ(myPen));   // 내 우리 앞에서 시작
 const P = { pos: farmSpawn(), vel: new THREE.Vector3(), onGround: false, ground: null, coyote: 0, jumpBuf: 0,
-  face: Math.PI / 2, anim: 0, held: null, invuln: 0, pick: null, flying: 0, flyMax: 1, canFly: true, hp: 100, hurtT: 0, dj: true, djT: 0 };
+  face: Math.PI / 2, anim: 0, held: null, invuln: 0, pick: null, flying: 0, flyMax: 1, canFly: true, hp: 100, hurtT: 0, dj: true, djT: 0, dashT: 0, dashCd: 0, dashX: 0, dashZ: 0, shield: 0, life: true, safePos: null };
+P.safePos = P.pos.clone();   // 마지막으로 땅을 밟은 자리 (떨어졌을 때 부활 위치)
+const DASH_SPEED = 30, DASH_TIME = 0.25;   // 대쉬: 0.25초 동안 초속 30 (약 7.5칸)
 const MAX_HP = 100;
 
 // 네모 사람 모델. 몸 색 = 우리 색
@@ -1308,6 +2095,10 @@ const FEATHER_STYLES = {
            shaft: 'rgba(255,255,255,0.85)', tints: [0xd0d6de, 0xe2e7ee, 0xf2f5f9], glow: 0.3, emissive: 0xb8c8e8, metal: 0.55, rough: 0.22 },
   gold:  { color: 0xffcc33, grad: ['#6e4a08', '#c08a18', '#f2c64a', '#fff1b0'], lines: 'rgba(110,70,10,0.5)', edge: 'rgba(255,240,170,0.95)', edgeW: 4,
            shaft: 'rgba(255,245,200,0.85)', tints: [0xffe7a8, 0xfff0c4, 0xfff6d8], glow: 0.4, emissive: 0xffc84a, metal: 0.5, rough: 0.25 },
+  emerald: { color: 0x2ee59d, grad: ['#04452b', '#0a8f5a', '#2ee59d', '#c8ffe8'], lines: 'rgba(0,70,40,0.5)', edge: 'rgba(190,255,225,0.95)', edgeW: 4,
+           shaft: 'rgba(210,255,235,0.85)', tints: [0xa8f5d0, 0xc4fbe2, 0xe0fff0], glow: 0.5, emissive: 0x2ee59d, metal: 0.45, rough: 0.2 },
+  diamond: { color: 0x8ff3ff, grad: ['#5fd8ff', '#bdf6ff', '#ffffff', '#e8fbff'], lines: 'rgba(80,170,210,0.4)', edge: 'rgba(255,255,255,1)', edgeW: 5,
+           shaft: 'rgba(255,255,255,0.9)', tints: [0xd8f8ff, 0xeefcff, 0xffffff], glow: 0.6, emissive: 0xaef4ff, metal: 0.6, rough: 0.1 },
   // 제작자: 진주빛 무지개 깃털 + 구리 덩굴 무늬 + 청록 빛 테두리
   creator: { color: 0xb9f3ff, grad: ['#8f86b8', '#c8bfe6', '#ece6fa', '#f6fbff'], lines: 'rgba(120,110,160,0.35)', edge: 'rgba(120,250,255,0.95)', edgeW: 5,
            shaft: 'rgba(200,130,70,0.9)', tints: [0xf0eaff, 0xf6f2ff, 0xfff4ea], glow: 0.45, emissive: 0x9ff4ff, metal: 0.35, rough: 0.2,
@@ -1408,10 +2199,43 @@ function tryFly() {
   if (P.flying > 0) { stopFly(); return; }
   if (!curWing()) { toast('🪽 날개가 없어요\n상점에서 날개를 사 보세요', 1.6); return; }
   if (curWing().dj) { toast('🪽 베타 테스터 날개는 날 수 없어요\n공중에서 Space(점프)로 더블점프!', 1.8); return; }
-  if (P.held || P.pick) { toast('🥚 달걀을 들고 있으면 날 수 없어요', 1.2); return; }
+  if (curWing().dash) { tryDash(); return; }
+  if (curWing().shield) { tryShield(); return; }
+  if (P.pick || (P.held && !curWing().inf)) { toast('🥚 달걀을 들고 있으면 날 수 없어요', 1.2); return; }   // 제작자 날개는 달걀 들고도 비행 OK
   if (!curWing().inf && flyLeft() <= 0) { toast('🪽 오늘은 날개를 3번 다 썼어요\n아침이 되면 다시 충전돼요', 2); return; }
   if (P.coyote > 0) { P.jumpBuf = 0.15; flyQueue = 0.22; }   // 땅 위 → 점프해서 조금 뜬 뒤 날기
   else if (P.canFly || curWing().inf) startFly();
+}
+// 다이아 날개: 3초 동안 무적 (보스에게 안 잡히고 함정에 안 다침), 게임 하루에 5번
+function shieldLeft() {
+  const w = curWing(), ci = cycleIndex(Date.now());
+  if (SAVE.shieldDay !== ci) { SAVE.shieldDay = ci; SAVE.shieldUses = 0; }
+  return (w && w.sUses || 5) - SAVE.shieldUses;
+}
+function tryShield() {
+  const w = curWing(); if (!w || !w.shield) return;
+  if (P.shield > 0) return;
+  if (shieldLeft() <= 0) { toast('💎 오늘은 무적을 5번 다 썼어요\n아침이 되면 다시 충전돼요', 2); return; }
+  SAVE.shieldUses++; save();
+  P.shield = w.sDur; P.djT = Math.max(P.djT, 0.6);
+  sfx('fly'); toast(`💎 ${w.sDur}초 동안 무적!`, 1.2);
+}
+const shieldBall = new THREE.Mesh(new THREE.SphereGeometry(1.25, 24, 16),
+  new THREE.MeshBasicMaterial({ color: 0xaef4ff, transparent: true, opacity: 0.25, depthWrite: false }));
+shieldBall.visible = false; scene.add(shieldBall);
+// 에메랄드 날개: 움직이는 방향(가만히 있으면 바라보는 방향)으로 대쉬, 쿨타임 5초 (달걀을 들고 있어도 OK)
+function tryDash() {
+  const w = curWing(); if (!w || !w.dash) return;
+  if (P.pick) return;
+  if (P.dashCd > 0) { toast(`🪽 대쉬 충전 중… ${P.dashCd.toFixed(1)}초`, 0.8); return; }
+  const fwd = (keys.KeyW || keys.ArrowUp ? 1 : 0) - (keys.KeyS || keys.ArrowDown ? 1 : 0) + joy.y;
+  const side = (keys.KeyD || keys.ArrowRight ? 1 : 0) - (keys.KeyA || keys.ArrowLeft ? 1 : 0) + joy.x;
+  let dx = -Math.sin(camYaw) * fwd + Math.cos(camYaw) * side, dz = -Math.cos(camYaw) * fwd - Math.sin(camYaw) * side;
+  const l = Math.hypot(dx, dz);
+  if (l < 0.1) { dx = Math.sin(P.face); dz = Math.cos(P.face); } else { dx /= l; dz /= l; }
+  P.dashX = dx; P.dashZ = dz; P.dashT = DASH_TIME; P.dashCd = w.cd;
+  P.djT = Math.max(P.djT, 0.4);   // 날개 힘차게 퍼덕
+  sfx('fly'); shake = Math.max(shake, 0.15);
 }
 
 // =====================================================================
@@ -1472,7 +2296,7 @@ function updateBoss(dt) {
     if (B.n.lv === 2) shake = Math.max(shake, Math.max(0, 1 - dist / 30) * 0.35 * Math.abs(Math.sin(B.anim)));
 
     const dy = P.pos.y - B.y;
-    if (P.invuln <= 0 && dist < L.catchR + HW && dy > -1.5 && dy < L.bossH) return caught();
+    if (P.invuln <= 0 && !(P.shield > 0) && dist < L.catchR + HW && dy > -1.5 && dy < L.bossH) return caught();
   }
   B.anim += dt * (B.speedNow * (B.n.lv === 2 ? 1.0 : 2.2) + 0.5);
   const amp = B.speedNow > 0.2 ? 0.7 : 0;
@@ -1502,7 +2326,14 @@ addEventListener('keydown', e => {
   }
   if (state === 'play' && /^Digit[0-9]$/.test(e.code) && !e.repeat) { const n = +e.code[5]; if (n === 0) openInv(); else selHot(n - 1); return; }
   if (e.code === 'KeyM' && !e.repeat) { if (state === 'play') openInv(); else if (state === 'inv') resume(); return; }
-  if (e.code === 'Escape' && (state === 'inv' || state === 'shop')) { resume(); return; }
+  if (e.code === 'KeyF' && !e.repeat && state === 'play') { setFirstPerson(!firstPerson); return; }
+  if (e.code === 'KeyV' && !e.repeat) { if (state === 'play') openPenInfo(); else if (state === 'shop' && penInfoOpen) resume(); return; }
+  if (e.code === 'Tab') {   // Tab: 도감 열기/닫기
+    e.preventDefault(); if (e.repeat) return;
+    if (state === 'play') openCodex(); else if (state === 'codex') resume();
+    return;
+  }
+  if (e.code === 'Escape' && (state === 'inv' || state === 'shop' || state === 'codex')) { resume(); return; }
   if (state !== 'play') return;
   if (e.code === 'KeyE' && !e.repeat) actionE();
   if (e.code === 'KeyR') dropEgg();
@@ -1512,6 +2343,7 @@ function actionE() {
   if (state !== 'play') return;
   if (nearShop()) openShop();
   else if (nearSellShop()) openSell();
+  else if (nearUpSign() && !P.held) tryUpgradePen();
   else penAction();
 }
 // Space / 점프 버튼
@@ -1534,6 +2366,22 @@ function doubleJump() {
 }
 addEventListener('keyup', e => { keys[e.code] = false; });
 let camYaw = -Math.PI / 2, camPitch = 0.38, camDist = 9, locked = false, dragging = false, shake = 0;
+// 1인칭: F키로 켜고 끔 · 휠(두 손가락)로 끝까지 당기면 1인칭, 다시 밀면 3인칭
+let firstPerson = false;
+const PITCH_3P = [-0.15, 1.25], PITCH_1P = [-1.35, 1.35];
+const clampPitch = p => { const [a, b] = firstPerson ? PITCH_1P : PITCH_3P; return Math.max(a, Math.min(b, p)); };
+function setFirstPerson(on) {
+  if (on === firstPerson) return;
+  firstPerson = on;
+  if (on) camPitch = 0; else { camDist = Math.max(camDist, 4.5); camPitch = clampPitch(Math.max(camPitch, 0.2)); }
+  toast(on ? '👀 1인칭 시점 (F 또는 휠로 3인칭)' : '🎥 3인칭 시점 (F 또는 휠을 끝까지 당기면 1인칭)', 1.4);
+}
+// 휠·두 손가락 줌: 가장 가까이에서 더 당기면 1인칭, 1인칭에서 밀면 3인칭
+function zoomBy(d) {
+  if (firstPerson) { if (d > 0) setFirstPerson(false); return; }
+  if (d < 0 && camDist <= 4.001) { setFirstPerson(true); return; }
+  camDist = Math.max(4, Math.min(18, camDist + d));
+}
 const camTarget = new THREE.Vector3(-2, 1.6, 0);
 function lock() { try { const p = cvs.requestPointerLock(); if (p && p.catch) p.catch(() => {}); } catch (e) {} }
 let mouseHeld = false, touchHeld = false;   // 달걀 들기는 3초 동안 꾹 누르고 있어야 함 (touchHeld = ✋ 버튼 꾹)
@@ -1575,12 +2423,12 @@ cvs.addEventListener('pointermove', e => {
   if (camPts.size === 1 && state === 'play') {
     const [dx, dy] = toApp(e.clientX - p.x, e.clientY - p.y);
     camYaw -= dx * 0.006;
-    camPitch = Math.max(-0.15, Math.min(1.25, camPitch + dy * 0.004));
+    camPitch = clampPitch(camPitch + dy * 0.004);
   }
   p.x = e.clientX; p.y = e.clientY;
   if (camPts.size === 2) {
     const [a, b] = [...camPts.values()], d = Math.hypot(a.x - b.x, a.y - b.y);
-    camDist = Math.max(4, Math.min(18, camDist - (d - pinchD) * 0.03)); pinchD = d;
+    zoomBy(-(d - pinchD) * 0.03); pinchD = d;
   }
 });
 ['pointerup', 'pointercancel'].forEach(t => cvs.addEventListener(t, e => camPts.delete(e.pointerId)));
@@ -1598,10 +2446,10 @@ addEventListener('mousemove', e => {
   if (state !== 'play') return;
   if (locked || dragging) {
     camYaw -= e.movementX * 0.0028;
-    camPitch = Math.max(-0.15, Math.min(1.25, camPitch + e.movementY * 0.0022));
+    camPitch = clampPitch(camPitch + e.movementY * 0.0022);
   }
 });
-addEventListener('wheel', e => { camDist = Math.max(4, Math.min(18, camDist + e.deltaY * 0.01)); });
+addEventListener('wheel', e => { if (state === 'play') zoomBy(e.deltaY * 0.01); });
 document.addEventListener('pointerlockchange', () => {
   const was = locked; locked = document.pointerLockElement === cvs;
   if (was && !locked && state === 'play') pauseGame();
@@ -1613,10 +2461,18 @@ let nightK = 0;
 function updateCamera(dt) {
   const tgt = new THREE.Vector3(P.pos.x, P.pos.y + 1.4, P.pos.z);
   camTarget.lerp(tgt, Math.min(1, dt * 12));
-  const off = new THREE.Vector3(Math.sin(camYaw) * Math.cos(camPitch), Math.sin(camPitch), Math.cos(camYaw) * Math.cos(camPitch)).multiplyScalar(camDist);
-  camera.position.copy(camTarget).add(off);
-  if (shake > 0) { camera.position.x += (Math.random() - 0.5) * shake; camera.position.y += (Math.random() - 0.5) * shake; shake = Math.max(0, shake - dt * 2); }
-  camera.lookAt(camTarget);
+  const dir = new THREE.Vector3(Math.sin(camYaw) * Math.cos(camPitch), Math.sin(camPitch), Math.cos(camYaw) * Math.cos(camPitch));   // 카메라 → 뒤쪽 방향
+  playerModel.g.visible = !firstPerson;   // 1인칭: 내 몸은 안 보임
+  if (firstPerson) {   // 1인칭: 눈 높이에서 바라보는 방향(=3인칭 카메라가 보던 방향)으로
+    const eye = new THREE.Vector3(P.pos.x, P.pos.y + PH * 0.92, P.pos.z);
+    camera.position.copy(eye);
+    if (shake > 0) { camera.position.x += (Math.random() - 0.5) * shake; camera.position.y += (Math.random() - 0.5) * shake; shake = Math.max(0, shake - dt * 2); }
+    camera.lookAt(eye.sub(dir));
+  } else {
+    camera.position.copy(camTarget).addScaledVector(dir, camDist);
+    if (shake > 0) { camera.position.x += (Math.random() - 0.5) * shake; camera.position.y += (Math.random() - 0.5) * shake; shake = Math.max(0, shake - dt * 2); }
+    camera.lookAt(camTarget);
+  }
   sun.position.set(P.pos.x + 20, P.pos.y + 50, P.pos.z + 25); sun.target.position.copy(P.pos);
   // 단계별 하늘색 + 밤
   nightK += ((night ? 1 : 0) - nightK) * Math.min(1, dt * 2);
@@ -1660,7 +2516,7 @@ const inOtherPen = () => P.pos.x > PEN.x0 && P.pos.x < PEN.x1 && P.pos.y < 1.5 &
 // 내 우리 안에서 가장 가까운 빈 칸 (여기에 달걀을 심음)
 function nearEmptySlot() {
   if (!inPen()) return null;
-  let best = null, bd = 1.3;
+  let best = null, bd = Infinity;   // 동그라미 표시 없이: 우리 안 어디서든 가장 가까운 빈 자리
   for (let i = 0; i < SLOTS; i++) {
     if (SAVE.slots[i]) continue;
     const p = slotPos(i), d = Math.hypot(P.pos.x - p.x, P.pos.z - p.z);
@@ -1699,12 +2555,12 @@ function penAction() {
   else if (c) pickPenItem(c.pick);
 }
 const nearSellShop = () => Math.hypot(P.pos.x - sellPos.x, P.pos.z - (sellPos.z - 1.3)) < 2.2 && P.pos.y < 1;
-// 우리 안에서 가까운 펫/부화 중인 알
+// 우리 안에서 가까운 부화 중인 알 (동물은 E로 뺄 수 없음)
 function nearPenItem() {
   if (!inPen() || P.held) return null;
   let best = null, bd = 1.5;
   farmVis.forEach((v, i) => {
-    if (!v) return;
+    if (!v || v.kind === 'baby') return;
     const p = v.kind === 'baby' ? v.pos : v.egg.position;
     const d = Math.hypot(P.pos.x - p.x, P.pos.z - p.z);
     if (d < bd) { bd = d; best = { i, v }; }
@@ -1755,13 +2611,21 @@ function updatePlayer(dt) {
   let wx = -Math.sin(camYaw) * fwd + Math.cos(camYaw) * side, wz = -Math.cos(camYaw) * fwd - Math.sin(camYaw) * side;
   const wl = Math.hypot(wx, wz); if (wl > 1) { wx /= wl; wz /= wl; }   // 조이스틱은 살짝 밀면 천천히
   const acc = Math.min(1, dt * (P.onGround ? 14 : 5));
-  P.vel.x += (wx * RUN - P.vel.x) * acc; P.vel.z += (wz * RUN - P.vel.z) * acc;
+  const cwF = P.flying > 0 ? curWing() : null;
+  const spd = cwF && cwF.inf ? RUN * 2 : RUN;   // 제작자 날개로 나는 중에는 2배 빠르게
+  P.vel.x += (wx * spd - P.vel.x) * acc; P.vel.z += (wz * spd - P.vel.z) * acc;
+  if (P.dashCd > 0) P.dashCd -= dt;
+  if (P.shield > 0) P.shield -= dt;
+  if (P.dashT > 0) {   // 대쉬 중: 정해진 방향으로 빠르게, 높이는 유지
+    P.dashT -= dt; P.vel.x = P.dashX * DASH_SPEED; P.vel.z = P.dashZ * DASH_SPEED; P.vel.y = Math.max(P.vel.y, 0);
+    if (P.dashT <= 0) { P.vel.x = P.dashX * RUN; P.vel.z = P.dashZ * RUN; }
+  }
 
   if (P.ground) { P.pos.x += P.ground.dx; P.pos.z += P.ground.dz; }
 
   P.coyote = P.onGround ? 0.12 : P.coyote - dt;
   P.jumpBuf -= dt;
-  if (flyQueue > 0) { flyQueue -= dt; if (flyQueue <= 0 && !P.onGround && !(P.flying > 0) && !P.held && !P.pick) startFly(); }
+  if (flyQueue > 0) { flyQueue -= dt; if (flyQueue <= 0 && !P.onGround && !(P.flying > 0) && (!P.held || (curWing() && curWing().inf)) && !P.pick) startFly(); }
   if (P.jumpBuf > 0 && P.coyote > 0) { P.vel.y = JUMP; P.coyote = 0; P.jumpBuf = 0; P.onGround = false; P.ground = null; sfx('jump'); }
 
   // 밤에는 농장 쪽에서 오비로 못 들어감 (방벽)
@@ -1785,13 +2649,13 @@ function updatePlayer(dt) {
     }
     P.ground = ground;
   }
-  if (P.onGround) { P.canFly = true; P.dj = true; }   // 땅에 닿으면 다시 날 수 있음 / 더블점프 충전
+  if (P.onGround) { P.canFly = true; P.dj = true; P.safePos.copy(P.pos); }   // 땅에 닿으면 다시 날 수 있음 / 더블점프 충전
   if (P.djT > 0) { P.djT -= dt; if (P.djT <= 0 && !(P.flying > 0)) showWingModel(playerModel, 0); }
 
   // 위험물: 회전 막대 HP -30, 가시 블록 HP -70 (HP 0이 되면 농장으로) / 낙하 → 농장으로
   P.hurtT -= dt;
-  if (P.pos.x < 0) P.hp = MAX_HP;   // 농장에 오면 HP 회복
-  if (P.hurtT <= 0) for (const hz of hazards) {
+  if (P.pos.x < 0) { P.hp = MAX_HP; P.life = true; }   // 농장에 오면 HP 회복 · 추가 생명 충전
+  if (P.hurtT <= 0 && !(P.shield > 0)) for (const hz of hazards) {   // 다이아 무적 중에는 함정 무시
     if (hz.kind === 'spike') {
       if (P.pos.x + HW > hz.minX && P.pos.x - HW < hz.maxX && P.pos.z + HW > hz.minZ && P.pos.z - HW < hz.maxZ && P.pos.y < hz.maxY && P.pos.y + PH > hz.minY) {
         if (hurt(70, '앗! 가시 블록!', P.pos.x - (hz.minX + hz.maxX) / 2, P.pos.z - (hz.minZ + hz.maxZ) / 2)) return;
@@ -1806,7 +2670,7 @@ function updatePlayer(dt) {
       }
     }
   }
-  if (P.pos.y < -12) return fail(P.pos.x > levelStarts[2] ? '앗 뜨거! 용암에 빠졌다!' : '으아아 떨어졌다!');
+  if (P.pos.y < -12) return revive(true) || fail(P.pos.x > levelStarts[2] ? '앗 뜨거! 용암에 빠졌다!' : '으아아 떨어졌다!');
 
   // 달걀 가까이 가면 흰색 윤곽선
   const ne = nearEgg();
@@ -1831,14 +2695,18 @@ function updatePlayer(dt) {
     pr = '<b>E</b> — 🪽 날개 상점 열기';
   } else if (nearSellShop()) {
     pr = '<b>E</b> — 💰 판매 상점 열기 (펫·알 팔기)';
+  } else if (nearUpSign() && !P.held) {
+    const lv = penLv();
+    pr = lv >= PEN_UP.length ? '🏡 우리가 최고 레벨이에요 (동물 ' + penCap() + '마리)'
+      : `<b>E</b> 또는 표지판 버튼 클릭 — 🏡 우리 업그레이드 <b style="color:${SAVE.money >= PEN_UP[lv] ? '#5f5' : '#f66'}">$${fmt(PEN_UP[lv])}</b> (동물 ${penCap()} → ${penCap() + PEN_STEP_CAP}마리)`;
   } else if (P.held && inPen()) {
     const es = nearEmptySlot();
-    if (es) pr = `<b>E</b> — 🥚 <b>${es.i + 1}번 칸</b>에 달걀 심기`;
-    else if (penFull()) pr = `우리가 가득 찼어요 — <b>E</b>: 달걀 팔기 (+${fmt(animalOf(P.held.lv, P.held.g).inc * 60)}원)`;
+    if (es) pr = `<b>E</b> — 🥚 여기에 달걀 놓기`;
+    else if (penFull()) pr = `우리가 가득 찼어요 — <b>E</b>: 달걀 팔기 (+$${fmt(animalOf(P.held.lv, P.held.g).inc * 60)})`;
     else pr = '🐣 원하는 <b>빈 칸</b>(바닥의 노란 동그라미) 위로 가서 <b>E</b>를 눌러 심어요';
   } else if (penChoice()) {
     const c = penChoice();
-    if (c.place !== undefined) pr = `<b>E</b> — 핫바 ${hotSel + 1}번 ${itemName(SAVE.inv[hotSel])}을(를) <b>${c.place + 1}번 칸</b>에 놓기`;
+    if (c.place !== undefined) pr = `<b>E</b> — 핫바 ${hotSel + 1}번 ${itemName(SAVE.inv[hotSel])}을(를) 여기에 놓기`;
     else { const { v } = c.pick; pr = `<b>E</b> — ${v.kind === 'baby' ? `${EMOJI[v.a.type]} ${v.a.name}` : '🥚 부화 중인 알'} 들기 (🎒 인벤토리로)`; }
   } else if (P.held && inOtherPen()) {
     pr = '🚫 다른 사람의 우리예요 — <b>내 우리</b>(노란 간판)로 가세요';
@@ -1872,6 +2740,9 @@ function updatePlayer(dt) {
   pm.betaTag.position.y = up ? 2.75 : 2.2;
   if (myTag) myTag.position.set(P.pos.x, P.pos.y + tagY(pm, up), P.pos.z);
   pm.g.visible = !((P.invuln > 0 || P.hurtT > 0) && Math.sin(T * 30) > 0);
+  // 다이아 무적: 반짝이는 보호막 (끝나기 1초 전부터 깜빡깜빡)
+  shieldBall.visible = P.shield > 0 && (P.shield > 1 || Math.sin(T * 25) > 0);
+  if (shieldBall.visible) { shieldBall.position.set(P.pos.x, P.pos.y + 0.9, P.pos.z); shieldBall.material.opacity = 0.2 + Math.sin(T * 8) * 0.08; }
   // 날개는 장착하면 항상 보임 (평소엔 살랑살랑, 비행·더블점프 중엔 힘차게)
   const cw = curWing(), wingOn = P.flying > 0 || P.djT > 0;
   showWingModel(pm, cw ? cw.color : 0);
@@ -1881,17 +2752,32 @@ function updatePlayer(dt) {
 // 실패 (떨어짐 / 함정 / 잡힘) → 달걀 없이 농장으로
 function goFarm() {
   if (P.held) { P.held = null; playerModel.holder.clear(); }
-  P.pick = null; sleepBoss(); stopFly(); P.hp = MAX_HP; P.hurtT = 0;
+  P.pick = null; sleepBoss(); stopFly(); P.dashT = 0; P.shield = 0; P.hp = MAX_HP; P.hurtT = 0;
   P.pos.copy(farmSpawn()); P.vel.set(0, 0, 0); P.ground = null; P.invuln = 1;
   camYaw = -Math.PI / 2;
 }
 // 함정에 맞음: HP만 줄고 그대로 통과 (1초 무적). HP 0이면 농장으로 → true 반환
 function hurt(dmg, msg) {
+  const cw = curWing();
+  if (cw && cw.inf) return false;   // 제작자 날개: 무제한 체력 (함정에 안 다침)
   P.hp = Math.max(0, P.hp - dmg);
-  if (P.hp <= 0) { fail(`${msg} HP 0!`); return true; }
+  if (P.hp <= 0) { if (!revive(false)) fail(`${msg} HP 0!`); return true; }
   P.hurtT = 1.0; shake = 0.25; sfx('die');
   toast(`${msg} -${dmg} HP`, 1.2);
   return false;
+}
+// 다이아 날개 추가 생명: 떨어지면 마지막으로 밟은 땅, HP 0이면 그 자리에서 부활 (달걀은 그대로 들고 있음)
+function revive(fell) {
+  const w = curWing(); if (!w) return false;
+  const inf = !!w.inf;   // 제작자 날개: 무한 부활
+  if (!inf && (!w.life || !P.life)) return false;
+  if (!inf) P.life = false;
+  if (fell) P.pos.copy(P.safePos);
+  P.vel.set(0, 0, 0); P.ground = null; P.dashT = 0; stopFly();
+  P.hp = MAX_HP; P.hurtT = 0; P.shield = Math.max(P.shield, 2);   // 부활 직후 2초 무적
+  sfx('fly'); shake = 0.3;
+  toast(inf ? '✨ 제작자 날개의 힘으로 그 자리에서 부활!' : '💎 추가 생명 사용! 그 자리에서 부활했어요\n(농장에 돌아가면 다시 충전돼요)', inf ? 1.5 : 2.5);
+  return true;
 }
 function fail(msg) {
   const had = P.held;
@@ -1900,6 +2786,7 @@ function fail(msg) {
   toast(had ? `${msg}\n달걀은 원래 자리로 돌아갔어요` : `${msg}\n농장으로 돌아왔어요`, 2.2);
 }
 function caught() {
+  if (revive(false)) return;   // 다이아 날개 추가 생명: 잡혀도 그 자리에서 부활 (달걀 그대로)
   const L = B.L;
   const y = P.onGround ? P.pos.y : groundAt(P.pos.x);
   const r = releaseEgg(P.pos.x, y, P.pos.z);
@@ -1930,7 +2817,7 @@ function depositEgg(idx) {
   const { lv, g } = P.held, a = animalOf(lv, g);
   if (idx >= 0 && !SAVE.slots[idx]) {
     SAVE.slots[idx] = newSlot(lv, g, 0);
-    toast(`🏡 ${eggLabel(lv, g)}을(를) ${idx + 1}번 칸에 심었다!\n무엇이 태어날까?`, 2.4);
+    toast(`🏡 ${eggLabel(lv, g)}을(를) 우리에 놓았다!\n무엇이 태어날까?`, 2.4);
   } else {
     const price = a.inc * 60;
     SAVE.money += price;
@@ -1963,8 +2850,11 @@ function titleScreen() {
       🔹 달걀을 들면 잠자던 보스(🐔→🐯→🦖)가 깨어나요! 오비를 거꾸로 깨서 <b>울타리 우리 안</b>까지 가져가요.<br>
       🔹 <b>R / 달걀 내리기</b>: 그 단계 안이면 달걀이 원래 자리로, 다른 단계면 그 자리에 남아요. 보스에게 잡혀도 똑같아요.<br>
       🔹 떨어지거나 잡히면 <b>달걀 없이 농장으로</b> 돌아가요. (체크포인트 없음)<br>
-      🔹 <b>🪽 날개 상점</b>: 흰색(10만원, 2초) · 검은(100만원, 2.5초) · 은색(300만원, 3초) · 금색(500만원, 4.5초) — <b>Shift+Space</b> 또는 <b>🪽 버튼</b>으로 비행!<br>
-      🔹 <b>✨ 제작자 날개</b>: 공중에서 <b>Space</b>로 무한 점프, <b>Shift+Space</b>로 시간·횟수 제한 없이 비행 (Space로 내리기)<br>
+      🔹 <b>🪽 날개 상점</b>: 흰색($100K, 2초) · 검은($10M, 2.5초) · 은색($500M, 3초) · 금색($1B, 4.5초) — <b>Shift+Space</b> 또는 <b>🪽 버튼</b>으로 비행!<br>
+      🔹 <b>💚 에메랄드 날개</b> ($10B): 날지는 못하지만 <b>Shift+Space</b> 또는 <b>💨 버튼</b>으로 <b>대쉬</b>! 5초에 1번, 달걀을 들고 있어도 OK<br>
+      🔹 <b>💎 다이아 날개</b> ($50B): <b>Shift+Space</b> 또는 <b>💎 버튼</b>으로 <b>3초 무적</b> (보스에게 안 잡히고 함정에 안 다쳐요). 게임 하루에 5번<br>
+      &nbsp;&nbsp;&nbsp;&nbsp;+ <b>❤️ 추가 생명 1개</b>: 떨어지거나 HP가 0이 되거나 보스에게 잡히면 그 자리에서 부활! (농장에 돌아오면 다시 충전)<br>
+      🔹 <b>✨ 제작자 날개</b>: 공중에서 <b>Space</b>로 무한 점프, <b>Shift+Space</b>로 시간·횟수 제한 없이 <b>2배 빠르게</b> 비행 (Space로 내리기, <b>달걀을 들고 있어도 OK</b>) · <b>무제한 체력</b> · 떨어지거나 잡혀도 <b>무한 부활</b><br>
       🔹 <b>🎁 베타 테스터 날개</b>: 접속한 모두에게 선물! 장착하면 공중에서 <b>Space(점프)</b>를 한 번 더 눌러 <b>더블점프</b> (달걀을 들고 있어도 OK!)<br>
       🔹 <b>🎒 인벤토리</b>(M키 / 가방 클릭, 100칸): 우리 안에서 펫·알 앞에서 <b>E</b>로 들기 → <b>💰 판매 상점</b>에서 팔기<br>
       🔹 달걀을 가져오면 <b>내 우리</b>에서 원하는 <b>빈 칸</b>(노란 동그라미) 위에 서서 <b>E</b> → 그 칸에 심어요. 핫바에서 고른 펫·알도 같은 방법으로 놓을 수 있어요.<br>
@@ -1973,7 +2863,7 @@ function titleScreen() {
       🔹 <b>🌐 함께 하기</b>: 이 게임에 들어오기만 하면 자동으로 같은 방에 접속해요 (최대 5명, 1명당 우리 1개). 다른 사람의 모습과 우리가 보이고, 누가 훔친 달걀은 모두에게서 사라져요.
     </div>
     <p style="font-size:13px;color:#9aa">📱 모바일: 왼쪽 조이스틱 이동 · 화면 드래그 카메라 · 두 손가락 줌 · ⤒ 점프 · ✋ E(꾹 누르면 달걀 들기) · 🪽 날기 · ⏸ 일시정지</p>
-    <p style="font-size:13px;color:#9aa">WASD 이동 · Space 점프 · Shift+Space·🪽버튼 날기 · E·클릭 꾹 달걀 훔치기 · E 상점/펫 들기 · R 달걀 내리기 · M·0 인벤토리 · 1~9 핫바 · 휠 줌 · ESC 일시정지</p>
+    <p style="font-size:13px;color:#9aa">WASD 이동 · Space 점프 · Shift+Space·🪽버튼 날기 · E·클릭 꾹 달걀 훔치기 · E 상점/펫 들기 · R 달걀 내리기 · M·0 인벤토리 · Tab·📖버튼 도감 · 1~9 핫바 · 휠 줌 · ESC 일시정지</p>
     <div class="netBox"><div id="netStatus">${NET.status}</div>
       ${nameLocked
         ? `<div>닉네임 <b style="color:#ffe14a">${NET.name.replace(/[&"<>]/g, "")}</b> 🔒 <span style="font-size:12px;color:#9aa">한 번 정한 닉네임은 바꿀 수 없어요</span></div>`
@@ -1990,19 +2880,66 @@ function resetData() {
   resetArmed = false; SAVE = freshSave(); save(); rebuildFarm(); titleScreen();
 }
 
+// 도감: 처음엔 부화한 모습(동물)으로, 칸을 클릭하면 달걀 모습 ↔ 동물 모습으로 바뀜
+const codexEgg = new Set();   // 달걀 모습으로 뒤집어 둔 칸 ('lv-g')
+let codexInGame = false;
+function openCodex() { if (state !== 'play') return; state = 'codex'; unlock(); codexInGame = true; codexScreen(); }
+function flipCodex(k) { codexEgg.has(k) ? codexEgg.delete(k) : codexEgg.add(k); codexScreen(); }
+// 도감 사진: 게임 속 3D 모델을 작은 그림으로 찍어 둠 (한 번 찍으면 저장해 두고 다시 씀)
+let _thumbR = null;
+const _thumbs = {};
+function modelThumb(key, build) {
+  if (key in _thumbs) return _thumbs[key];
+  let url = null;
+  try {
+    if (!_thumbR) {
+      _thumbR = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
+      _thumbR.setSize(160, 160); _thumbR.setClearColor(0x000000, 0);
+      ['outputEncoding', 'toneMapping', 'toneMappingExposure', 'physicallyCorrectLights'].forEach(p => { if (p in renderer) _thumbR[p] = renderer[p]; });
+    }
+    const sc = new THREE.Scene();
+    sc.add(new THREE.HemisphereLight(0xffffff, 0x556644, 1.0));
+    const dl = new THREE.DirectionalLight(0xffffff, 1.1); dl.position.set(3, 6, 5); sc.add(dl);
+    const obj = build(); sc.add(obj);
+    const bs = new THREE.Box3().setFromObject(obj).getBoundingSphere(new THREE.Sphere());
+    const cam = new THREE.PerspectiveCamera(30, 1, 0.01, 200);
+    const dir = new THREE.Vector3(0.75, 0.38, 1).normalize();   // 앞쪽 비스듬히 위에서
+    cam.position.copy(bs.center).addScaledVector(dir, bs.radius / Math.sin(15 * Math.PI / 180) * 1.02);
+    cam.lookAt(bs.center);
+    _thumbR.render(sc, cam);
+    url = _thumbR.domElement.toDataURL('image/png');
+  } catch (e) { url = null; }
+  return (_thumbs[key] = url);
+}
+const animalThumb = (lv, g) => modelThumb('a' + lv + '-' + g, () => makeAnimal(animalOf(lv, g).type, 1.6).g);
+const eggThumb = (lv, g) => modelThumb('e' + lv + '-' + g, () => makeEggMesh(lv, g));
+// 도감 칸 그림: 동물은 3D 모델 사진, 알은 받은 그림이 있으면 그 그림, 없으면 3D 알 사진
+function codexAnimalPic(lv, g) {
+  const u = animalThumb(lv, g);
+  return `<div class="pic">${u ? `<img class="thumb" src="${u}" alt="">` : animalIcon(animalOf(lv, g).type)}</div>`;
+}
+function codexEggPic(lv, g) {
+  if (EGG_IMG[lv + '-' + g]) return eggHTML(lv, g);
+  const u = eggThumb(lv, g);
+  return u ? `<div class="pic"><img class="thumb" src="${u}" alt=""></div>` : eggHTML(lv, g);
+}
 function codexScreen() {
+  if (state !== 'codex') codexInGame = false;   // 타이틀 화면에서 연 도감
   let cells = '', total = 0;
   ANIMALS.forEach((row, lv) => {
     cells += `<div class="row-label">${LEVELS[lv].emoji} ${LEVELS[lv].name}</div>`;
     row.forEach((a, g) => {
       total++;
-      const has = SAVE.codex.includes(lv + '-' + g);
-      cells += `<div class="cell">${has ? eggHTML(lv, g) : '<div class="egg unknown"></div>'}<div style="margin-top:6px;font-weight:bold">${has ? a.name : '???'}</div>
-        <div style="color:#ffd23f">${has ? `초당 ${fmt(a.inc)}원` : ''}</div><div style="color:#9aa">${has ? `부화 ${mmss(a.ht)}` : ''}</div></div>`;
+      const k = lv + '-' + g, has = SAVE.codex.includes(k), egg = codexEgg.has(k);
+      const pic = !has ? '<div class="egg unknown"></div>' : egg ? codexEggPic(lv, g) : codexAnimalPic(lv, g);
+      cells += `<div class="cell${has ? ' click' : ''}" ${has ? `onclick="flipCodex('${k}')" title="클릭: ${egg ? '동물' : '달걀'} 모습 보기"` : ''}>${pic}
+        <div style="margin-top:6px;font-weight:bold">${has ? a.name + (egg ? ' 알' : '') : '???'}</div>
+        <div style="color:#ffd23f">${has ? `초당 $${fmt(a.inc)}` : ''}</div><div style="color:#9aa">${has ? `부화 ${mmss(a.ht)}` : ''}</div></div>`;
     });
   });
-  showOverlay(`<h2>📖 동물 도감 (${SAVE.codex.length}/${total})</h2><div class="codex">${cells}</div>
-    <button class="btn gray" onclick="titleScreen()">돌아가기</button>`);
+  showOverlay(`<h2>📖 동물 도감 (${SAVE.codex.length}/${total})</h2>
+    <p style="font-size:13px;color:#cfd3ea;margin:0">칸을 클릭하면 <b>달걀 모습</b> ↔ <b>동물 모습</b>으로 바뀌어요</p><div class="codex">${cells}</div>
+    ${codexInGame ? '<button class="btn gray" onclick="resume()">닫기 (Tab)</button>' : '<button class="btn gray" onclick="titleScreen()">돌아가기</button>'}`);
 }
 
 function startGame() {
@@ -2021,18 +2958,48 @@ function startGame() {
   else toast('➡ 오비를 깨고 둥지의 달걀을 훔쳐 오자!', 2.5);
   buildBar();
 }
-function resume() { hideOverlay(); state = 'play'; lock(); }
+function resume() { hideOverlay(); state = 'play'; penInfoOpen = false; lock(); }
+// ---------- 🥚 내 우리 보기 (날기 버튼 아래 달걀 버튼 / P): 우리 안 동물 목록 + 초당 수입 ----------
+let penInfoOpen = false;
+function openPenInfo() { if (state !== 'play') return; state = 'shop'; penInfoOpen = true; unlock(); renderPenInfo(); }
+function renderPenInfo() {
+  const groups = new Map();   // 같은 동물끼리 묶기
+  let eggs = 0, wait = 0;
+  SAVE.slots.forEach(s => {
+    if (!s) return;
+    if (!isHatched(s)) { eggs++; if (s.hold) wait++; return; }
+    const k = s.lv + '-' + s.g, gr = groups.get(k) || { lv: s.lv, g: s.g, n: 0 };
+    gr.n++; groups.set(k, gr);
+  });
+  const list = [...groups.values()].sort((a, b) => animalOf(b.lv, b.g).inc * b.n - animalOf(a.lv, a.g).inc * a.n);
+  const rows = list.map(({ lv, g, n }) => {
+    const a = animalOf(lv, g), u = animalThumb(lv, g);
+    return `<div class="penRow"><div class="pic">${u ? `<img class="thumb" src="${u}" alt="">` : animalIcon(a.type)}</div>
+      <div><b style="font-size:17px">${a.name}</b> <span style="color:#cfd3ea">× ${n}마리</span><br>
+      <span style="font-size:13px;color:#9aa">한 마리당 초당 $${fmt(a.inc)}</span></div>
+      <div class="inc">초당 +$${fmt(a.inc * n)}</div></div>`;
+  }).join('') || '<div class="penRow" style="justify-content:center;color:#9aa">아직 우리에 동물이 없어요 · 달걀을 훔쳐 와서 우리에 놓아 보세요!</div>';
+  const nA = animalCount(), lv = penLv(), max = lv >= PEN_UP.length;
+  showOverlay(`<h2>🥚 내 우리</h2>
+    <p style="margin:4px 0">🏡 우리 <b>Lv.${lv + 1}</b> · 동물 <b>${nA}/${penCap()}</b>마리 · 💰 초당 <b style="color:#ffd23f">+$${fmt(totalIncome())}</b></p>
+    <p style="font-size:13px;color:#cfd3ea;margin:0">🥚 부화 중인 알 ${eggs}개${wait ? ` <span style="color:#ff9a9a">(그중 ${wait}개는 동물 자리가 없어 대기 중)</span>` : ''} · 알은 동물 수와 상관없이 빈 칸(${SLOTS}칸)에 놓을 수 있어요</p>
+    <div class="penList">${rows}</div>
+    <p style="font-size:13px;color:#cfd3ea">${max ? '🏆 우리가 최고 레벨이에요!' : `⬆ 우리 앞 <b>표지판</b>에서 업그레이드하면 동물 +${PEN_STEP_CAP}마리 (<b style="color:${SAVE.money >= PEN_UP[lv] ? '#5f5' : '#f66'}">$${fmt(PEN_UP[lv])}</b>)`}</p>
+    <button class="btn gray" onclick="resume()">닫기 (V)</button>`);
+}
 function openShop() { state = 'shop'; unlock(); renderShop(); }
 function renderShop() {
   // 제작자 날개는 가진 사람에게만 보임 (못 가진 사람의 상점에는 안 나옴)
-  const items = WINGS.filter(w => w.id !== 'creator' || SAVE.wings.includes(w.id)).map(w => {
+  // 가격 낮은 순 (선물 날개는 맨 뒤)
+  const items = WINGS.filter(w => w.id !== 'creator' || SAVE.wings.includes(w.id))
+    .sort((a, b) => (!!a.gift - !!b.gift) || (a.price - b.price)).map(w => {
     const owned = SAVE.wings.includes(w.id), eq = SAVE.equip === w.id;
-    const btn = w.gift && !owned ? '<button class="btn gray" disabled>선물 전용</button>' : !owned ? `<button class="btn" ${SAVE.money < w.price ? 'disabled' : ''} onclick="buyWing('${w.id}')">${fmt(w.price)}원</button>`
+    const btn = w.gift && !owned ? '<button class="btn gray" disabled>선물 전용</button>' : !owned ? `<button class="btn" ${SAVE.money < w.price ? 'disabled' : ''} onclick="buyWing('${w.id}')">$${fmt(w.price)}</button>`
       : eq ? '<button class="btn gray" disabled>장착 중</button>' : `<button class="btn gray" onclick="equipWing('${w.id}')">장착</button>`;
     return `<div class="item"><div><span class="wingIcon" style="background:${w.css}"></span><b>${w.name}</b><br>
-      <span style="font-size:13px;color:#cfd3ea">${w.inf ? '✨ 제작자 선물 · 무한 비행 · 무한 점프' : w.dj ? '🎁 베타 테스터 선물 · 더블점프' : w.dur + '초 동안 비행'}</span></div>${btn}</div>`;
+      <span style="font-size:13px;color:#cfd3ea">${w.inf ? '✨ 제작자 선물 · 2배속 무한 비행 · 무한 점프 · 무제한 체력 · 무한 부활' : w.dj ? '🎁 베타 테스터 선물 · 더블점프' : w.dash ? `💨 대쉬 · ${w.cd}초에 1번 (달걀 들고도 OK)` : w.shield ? `💎 ${w.sDur}초 무적 · 하루 ${w.sUses}번 · ❤️ 추가 생명 1` : w.dur + '초 동안 비행'}</span></div>${btn}</div>`;
   }).join('');
-  showOverlay(`<h2>🪽 날개 상점</h2><p>보유: <b style="color:#ffd23f">${fmt(SAVE.money)}원</b></p><div class="shop">${items}</div>
+  showOverlay(`<h2>🪽 날개 상점</h2><p>보유: <b style="color:#ffd23f">$${fmt(SAVE.money)}</b></p><div class="shop">${items}</div>
     <p style="font-size:13px;margin-top:12px"><b>Shift+Space</b> 또는 오른쪽 <b>🪽 버튼</b> → 비행 시작 · 게임 시간 <b>하루에 3번</b>까지 (아침에 충전)<br>
     달걀을 들고 있거나 드는 중에는 날 수 없어요<br>
     비행 중 <b>Space</b> 또는 <b>내리기</b> 버튼 → 날개가 사라지며 비행 중단</p>
@@ -2047,7 +3014,7 @@ function equipWing(id) { SAVE.equip = id; save(); renderShop(); }
 
 // ---------- 인벤토리 (100칸) ----------
 const itemName = it => it.kind === 'pet' ? animalOf(it.lv, it.g).name : (it.g === SECRET ? '드래곤 에그' : `${BIOMES[it.lv]} 알`);
-const itemIcon = it => it.kind === 'pet' ? `<div class="ico">${EMOJI[animalOf(it.lv, it.g).type]}</div>` : eggHTML(it.lv, it.g);
+const itemIcon = it => it.kind === 'pet' ? `<div class="ico">${animalIcon(animalOf(it.lv, it.g).type)}</div>` : eggHTML(it.lv, it.g);
 const priceOf = it => it.kind === 'pet' ? animalOf(it.lv, it.g).inc * PET_PRICE_MULT : (it.g === SECRET ? SECRET_EGG_PRICE : EGG_PRICE[it.lv]);
 const freeSlot = () => { for (let i = 0; i < SLOTS; i++) if (!SAVE.slots[i]) return i; return -1; };
 function pickPenItem({ i, v }) {
@@ -2068,12 +3035,12 @@ function renderInv() {
       <span class="invNo">${i + 1}</span>${it ? itemIcon(it) + `<div class="invName">${itemName(it)}</div>
       <button class="cellBtn" onclick="event.stopPropagation();placeFromInv(${i})">🐣 우리에 놓기</button>` : ''}</div>`;
   }).join('');
-  let detail = '<span style="color:#9aa">아이템을 클릭하면 정보가 보여요 · 파란 1~9번 칸은 아래 핫바에 나와요 · 우리 안에서 펫이나 알 앞에서 <b>E</b>를 누르면 인벤토리에 들어와요</span>';
+  let detail = '<span style="color:#9aa">아이템을 클릭하면 정보가 보여요 · 파란 1~9번 칸은 아래 핫바에 나와요 · 우리 안에서 부화 중인 알 앞에서 <b>E</b>를 누르면 인벤토리에 들어와요</span>';
   const it = SAVE.inv[invSel];
   if (it) {
     const a = animalOf(it.lv, it.g);
     detail = `${itemIcon(it)}<div><b style="font-size:18px">${itemName(it)}</b><br>
-      ${it.kind === 'pet' ? `초당 ${fmt(a.inc)}원 (우리에 있을 때만)` : `부화까지 ${minSec(a.ht - it.prog)} (우리에 있을 때만 자라요)`} · 판매가 <b style="color:#ffd23f">${fmt(priceOf(it))}원</b><br>
+      ${it.kind === 'pet' ? `초당 $${fmt(a.inc)} (우리에 있을 때만)` : `부화까지 ${minSec(a.ht - it.prog)} (우리에 있을 때만 자라요)`} · 판매가 <b style="color:#ffd23f">$${fmt(priceOf(it))}</b><br>
       <button class="btn" onclick="placeFromInv(${invSel})">🐣 우리에 놓기</button>
       <span style="font-size:12px;color:#9aa;margin-left:8px">판매는 💰 판매 상점에서만 가능해요</span>
       ${invMsg ? `<div style="color:#ff8080">${invMsg}</div>` : ''}</div>`;
@@ -2106,18 +3073,24 @@ function renderHotbar() {
 // 인벤토리 i번 아이템을 우리 idx번 칸에 놓기
 function placeInvAt(i, idx) {
   const it = SAVE.inv[i]; if (!it || SAVE.slots[idx]) return;
+  if (it.kind === 'pet' && animalCount() >= penCap()) {   // 동물은 우리 레벨만큼만 놓을 수 있음 (알은 제한 없음)
+    const msg = `🚫 동물은 ${penCap()}마리까지만 놓을 수 있어요\n우리 앞 표지판에서 업그레이드하면 +${PEN_STEP_CAP}마리!`;
+    if (state === 'play') toast(msg, 2.4); else { invSel = i; invMsg = msg.replace('\n', ' · '); }
+    return false;
+  }
   SAVE.slots[idx] = it.kind === 'pet'
-    ? newSlot(it.lv, it.g, animalOf(it.lv, it.g).ht + 1)   // 이미 태어난 펫
+    ? Object.assign(newSlot(it.lv, it.g, animalOf(it.lv, it.g).ht + 1), { born: true })   // 이미 태어난 펫
     : newSlot(it.lv, it.g, it.prog);                       // 자라던 만큼 이어서
   SAVE.inv.splice(i, 1);
   save(); rebuildFarm(); sfx('pick');
-  if (state === 'play') toast(`🐣 ${itemName(it)}을(를) ${idx + 1}번 칸에 놓았어요`, 1.6);
+  if (state === 'play') toast(`🐣 ${itemName(it)}을(를) 우리에 놓았어요`, 1.6);
 }
 function placeFromInv(i) {
   if (!SAVE.inv[i]) return;
   const idx = freeSlot();
-  if (idx < 0) { invSel = i; invMsg = '우리가 가득 찼어요 (18칸)'; renderInv(); return; }
-  placeInvAt(i, idx); invSel = -1; renderInv();
+  if (idx < 0) { invSel = i; invMsg = `우리의 알 놓는 칸이 모두 찼어요 (${SLOTS}칸)`; renderInv(); return; }
+  if (placeInvAt(i, idx) !== false) invSel = -1;
+  renderInv();
 }
 
 // ---------- 판매 상점 (펫·알 팔기) ----------
@@ -2127,17 +3100,17 @@ function renderSell() {
   if (P.held) {
     const h = { kind: 'egg', lv: P.held.lv, g: P.held.g };
     rows += `<div class="item"><div style="display:flex;align-items:center;gap:10px">${itemIcon(h)}<div><b>${itemName(h)}</b> <span style="color:#9aa">(들고 있는 알)</span></div></div>
-      <button class="btn" onclick="sellHeld()">${fmt(priceOf(h))}원에 팔기</button></div>`;
+      <button class="btn" onclick="sellHeld()">$${fmt(priceOf(h))}에 팔기</button></div>`;
   }
   SAVE.inv.forEach((it, i) => {
     rows += `<div class="item"><div style="display:flex;align-items:center;gap:10px">${itemIcon(it)}<div><b>${itemName(it)}</b><br>
       <span style="font-size:12px;color:#9aa">${it.kind === 'pet' ? '펫' : '알'}</span></div></div>
-      <button class="btn" onclick="sellInv(${i})">${fmt(priceOf(it))}원에 팔기</button></div>`;
+      <button class="btn" onclick="sellInv(${i})">$${fmt(priceOf(it))}에 팔기</button></div>`;
   });
   const total = SAVE.inv.reduce((a, it) => a + priceOf(it), 0);
-  showOverlay(`<h2>💰 판매 상점</h2><p>보유: <b style="color:#ffd23f">${fmt(SAVE.money)}원</b></p>
+  showOverlay(`<h2>💰 판매 상점</h2><p>보유: <b style="color:#ffd23f">$${fmt(SAVE.money)}</b></p>
     <div class="shop">${rows || '<p>팔 수 있는 펫이나 알이 없어요.<br>우리 안에서 펫·알 앞에서 <b>E</b>를 누르면 인벤토리에 들어와요.</p>'}</div>
-    ${SAVE.inv.length ? `<button class="btn" onclick="sellAll()">인벤토리 전부 팔기 (${fmt(total)}원)</button>` : ''}
+    ${SAVE.inv.length ? `<button class="btn" onclick="sellAll()">인벤토리 전부 팔기 ($${fmt(total)})</button>` : ''}
     <button class="btn gray" onclick="resume()">닫기</button>`);
 }
 function sellInv(i) {
@@ -2177,23 +3150,32 @@ function updateHUD() {
   $('barMe').style.left = pct(P.pos.x);
   $('barBoss').classList.toggle('hidden', !B);
   if (B) $('barBoss').style.left = pct(B.x);
-  $('hMoney').textContent = `💰 ${fmt(SAVE.money)}원`;
-  $('hIncome').textContent = `초당 +${fmt(totalIncome())}원`;
-  const used = SAVE.slots.filter(Boolean).length;
-  $('hFarm').textContent = `🏡 부화 칸 ${used}/${SLOTS}` + (NET.ready ? ` · 🌐 ${netCount()}명` : '');
+  $('hMoney').textContent = `💰 $${fmt(SAVE.money)}`;
+  $('hIncome').textContent = `초당 +$${fmt(totalIncome())}`;
+  const nA = animalCount(), nE = SAVE.slots.filter(s => s && !isHatched(s)).length;
+  $('hFarm').textContent = `🏡 동물 ${nA}/${penCap()} · 알 ${nE}` + (NET.ready ? ` · 🌐 ${netCount()}명` : '');
+  updatePenSign();
   renderHotbar();
   $('hpFill').style.width = (P.hp / MAX_HP * 100) + '%';
   $('hpFill').style.background = P.hp >= 70 ? '#3ccf4e' : P.hp >= 50 ? '#ffd23f' : '#ff3b3b';
   $('hpText').textContent = Math.round(P.hp);
   const w = curWing();
-  $('hFly').textContent = !w ? '' : w.inf ? `✨ ${w.name} · 무한 비행 · 공중 무한 점프` : w.dj ? `🪽 ${w.name} · 공중에서 점프 → 더블점프` : `🪽 ${w.name} 오늘 ${flyLeft()}/${FLY_PER_DAY}회 남음`;
+  $('hFly').textContent = !w ? '' : w.inf ? `✨ ${w.name} · 2배속 무한 비행 · 공중 무한 점프 · ♾️ 체력 · 무한 부활` : w.dj ? `🪽 ${w.name} · 공중에서 점프 → 더블점프` : w.dash ? `💚 ${w.name} · Shift+Space 대쉬 ${P.dashCd > 0 ? P.dashCd.toFixed(1) + '초 후 충전' : '준비 완료!'}`
+    : w.shield ? `💎 ${w.name} · ${P.shield > 0 ? `무적 ${P.shield.toFixed(1)}초!` : `Shift+Space 무적 오늘 ${shieldLeft()}/${w.sUses}회 남음`} · ${P.life ? '❤️ 추가 생명 1' : '🖤 추가 생명 0'}` : `🪽 ${w.name} 오늘 ${flyLeft()}/${FLY_PER_DAY}회 남음`;
   $('jumpBanner').classList.toggle('hidden', !P.held);
   $('btnDrop').classList.toggle('hidden', !P.held);
   const fb = $('btnFly'), fl = P.flying > 0;
   fb.classList.toggle('hidden', !w || !!w.dj);
   fb.classList.toggle('land', fl);
-  fb.classList.toggle('off', !fl && ((!(w && w.inf) && flyLeft() <= 0) || !!P.held));
-  if (w && !w.dj) fb.innerHTML = fl ? '<b>⬇</b>내리기' : w.inf ? '<b>🪽</b>날기 ∞' : `<b>🪽</b>날기 ${flyLeft()}/${FLY_PER_DAY}`;
+  if (w && w.dash) {
+    fb.classList.toggle('off', P.dashCd > 0);
+    fb.innerHTML = P.dashCd > 0 ? `<b>💨</b>${Math.ceil(P.dashCd)}초` : '<b>💨</b>대쉬';
+  } else if (w && w.shield) {
+    const on = P.shield > 0, left = shieldLeft();
+    fb.classList.toggle('off', !on && left <= 0); fb.classList.toggle('land', on);
+    fb.innerHTML = on ? `<b>💎</b>${Math.ceil(P.shield)}초` : `<b>💎</b>무적 ${left}/${w.sUses}`;
+  } else fb.classList.toggle('off', !fl && !(w && w.inf) && (flyLeft() <= 0 || !!P.held));
+  if (w && !w.dj && !w.dash && !w.shield) fb.innerHTML = fl ?'<b>⬇</b>내리기' : w.inf ? '<b>🪽</b>날기 ∞' : `<b>🪽</b>날기 ${flyLeft()}/${FLY_PER_DAY}`;
   $('flyBar').classList.toggle('hidden', !(P.flying > 0));
   if (P.flying === Infinity) $('flyBar').innerHTML = '✨ 무한 비행 중 · Space로 내리기<div class="pbar"><div style="width:100%"></div></div>';
   else if (P.flying > 0) $('flyBar').innerHTML = `🪽 비행 중 ${P.flying.toFixed(1)}초<div class="pbar"><div style="width:${P.flying / P.flyMax * 100}%"></div></div>`;
@@ -2610,6 +3592,7 @@ buildWorld();
 barrier.visible = night;
 respawnAllEggs();
 rebuildFarm();
+placeUpSign();   // 내 우리 앞 업그레이드 표지판
 playerModel.g.position.copy(P.pos);
 NET.name = netName(); setMyTag();
 titleScreen();
