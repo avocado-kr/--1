@@ -153,6 +153,9 @@
   .wingIcon { display: inline-block; width: 34px; height: 22px; border-radius: 50% 50% 10% 50%; margin-right: 8px; vertical-align: middle; border: 1px solid #888; }
 
   #overlay { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(10,10,25,.72); backdrop-filter: blur(3px); }
+  /* 내 우리·인벤토리·도감: 창을 띄운 채로 걸어다닐 수 있게 (화면을 가리지 않고 오른쪽에) */
+  #overlay.walk { background: transparent; backdrop-filter: none; pointer-events: none; justify-content: flex-end; }
+  #overlay.walk .panel { pointer-events: auto; max-width: 540px; margin-right: 16px; background: linear-gradient(160deg, rgba(43,47,74,.93), rgba(27,29,48,.93)); }
   .panel { background: linear-gradient(160deg, #2b2f4a, #1b1d30); border: 2px solid rgba(255,255,255,.15); border-radius: 22px; padding: 30px 38px; text-align: center; max-width: 760px; width: calc(100% - 32px); max-height: calc(92 * var(--vh, 1vh)); overflow: auto; box-shadow: 0 20px 60px rgba(0,0,0,.5); }
   .panel h1 { font-size: 42px; margin-bottom: 6px; }
   .panel h2 { font-size: 30px; margin-bottom: 10px; }
@@ -2177,6 +2180,18 @@ function flapWings(pm, T, fast) {   // fast: 비행·더블점프 중 힘차게,
     pm.fw[k].Wl.forEach((p, i) => { p.rotation.z = (i ? -1 : 1) * (fast ? 0.15 + Math.sin(T * 12) * 0.35 : 0.12 + Math.sin(T * 2.5) * 0.08); });
 }
 const playerModel = makePerson(PEN_COLORS[myPen]);
+// 핫바에서 고른 칸의 펫·알을 손에 든 모습 (훔친 달걀을 들고 있을 때는 숨김)
+playerModel.hotG = new THREE.Group(); playerModel.hotG.position.copy(playerModel.holder.position); playerModel.g.add(playerModel.hotG);
+let hotHoldKey = '';
+function updateHotHold() {
+  const it = hotSel >= 0 ? SAVE.inv[hotSel] : null, k = it ? it.kind + it.lv + '-' + it.g : '';
+  if (k !== hotHoldKey) {
+    hotHoldKey = k; playerModel.hotG.clear();
+    if (it && it.kind === 'pet') playerModel.hotG.add(makeAnimal(animalOf(it.lv, it.g).type, 0.9).g);
+    else if (it) playerModel.hotG.add(makeEggMesh(it.lv, it.g));
+  }
+  playerModel.hotG.visible = !!it;
+}
 const curWing = () => WINGS.find(w => w.id === SAVE.equip && SAVE.wings.includes(w.id));
 // 날개는 게임 시간 기준 하루(낮+밤 1번)에 3번까지
 const FLY_PER_DAY = 3;
@@ -2195,7 +2210,7 @@ function stopFly() { if (!(P.flying > 0)) return; P.flying = 0; showWingModel(pl
 // Shift+Space 또는 오른쪽 🪽 버튼: 땅에서는 점프 후 바로 날고, 공중에서는 그 자리에서 날기, 나는 중이면 내리기
 let flyQueue = 0;
 function tryFly() {
-  if (state !== 'play') return;
+  if (!canWalk()) return;
   if (P.flying > 0) { stopFly(); return; }
   if (!curWing()) { toast('🪽 날개가 없어요\n상점에서 날개를 사 보세요', 1.6); return; }
   if (curWing().dj) { toast('🪽 베타 테스터 날개는 날 수 없어요\n공중에서 Space(점프)로 더블점프!', 1.8); return; }
@@ -2321,7 +2336,7 @@ addEventListener('keydown', e => {
   keys[e.code] = true;
   if (e.code === 'Space') {
     e.preventDefault(); if (e.repeat) return;
-    if (state === 'play' && e.shiftKey) tryFly();                                           // Shift + Space → 날기
+    if (canWalk() && e.shiftKey) tryFly();                                           // Shift + Space → 날기
     else jumpPress();                                                                       // 점프 (비행 중이면 날개 사라지며 중단)
   }
   if (state === 'play' && /^Digit[0-9]$/.test(e.code) && !e.repeat) { const n = +e.code[5]; if (n === 0) openInv(); else selHot(n - 1); return; }
@@ -2334,6 +2349,7 @@ addEventListener('keydown', e => {
     return;
   }
   if (e.code === 'Escape' && (state === 'inv' || state === 'shop' || state === 'codex')) { resume(); return; }
+  if (e.code === 'KeyR' && !e.repeat && state === 'paused') { resetChar(); return; }
   if (state !== 'play') return;
   if (e.code === 'KeyE' && !e.repeat) actionE();
   if (e.code === 'KeyR') dropEgg();
@@ -2348,7 +2364,7 @@ function actionE() {
 }
 // Space / 점프 버튼
 function jumpPress() {
-  if (state !== 'play') return;
+  if (!canWalk()) return;
   if (P.flying > 0) stopFly();
   else if (canDoubleJump()) doubleJump();
   else P.jumpBuf = 0.15;
@@ -2385,7 +2401,7 @@ function zoomBy(d) {
 const camTarget = new THREE.Vector3(-2, 1.6, 0);
 function lock() { try { const p = cvs.requestPointerLock(); if (p && p.catch) p.catch(() => {}); } catch (e) {} }
 let mouseHeld = false, touchHeld = false;   // 달걀 들기는 3초 동안 꾹 누르고 있어야 함 (touchHeld = ✋ 버튼 꾹)
-cvs.addEventListener('mousedown', () => { dragging = true; mouseHeld = true; if (state === 'play' && !locked) lock(); });
+cvs.addEventListener('mousedown', () => { dragging = true; mouseHeld = state === 'play'; if (state === 'play' && !locked) lock(); });   // 창이 열려 있으면 끌어서 화면만 돌림
 addEventListener('mouseup', () => { dragging = false; mouseHeld = false; });
 
 // ---------- 모바일 터치 조작 ----------
@@ -2420,7 +2436,7 @@ cvs.addEventListener('pointerdown', e => {
 });
 cvs.addEventListener('pointermove', e => {
   const p = camPts.get(e.pointerId); if (!p) return;
-  if (camPts.size === 1 && state === 'play') {
+  if (camPts.size === 1 && canWalk()) {
     const [dx, dy] = toApp(e.clientX - p.x, e.clientY - p.y);
     camYaw -= dx * 0.006;
     camPitch = clampPitch(camPitch + dy * 0.004);
@@ -2443,13 +2459,13 @@ touchBtn('tAct', () => { touchHeld = true; actionE(); }, () => { touchHeld = fal
 touchBtn('tJump', jumpPress);
 touchBtn('tPause', () => { if (state === 'play') pauseGame(); });
 addEventListener('mousemove', e => {
-  if (state !== 'play') return;
+  if (!canWalk()) return;
   if (locked || dragging) {
     camYaw -= e.movementX * 0.0028;
     camPitch = clampPitch(camPitch + e.movementY * 0.0022);
   }
 });
-addEventListener('wheel', e => { if (state === 'play') zoomBy(e.deltaY * 0.01); });
+addEventListener('wheel', e => { if (state === 'play' || (canWalk() && e.target === cvs)) zoomBy(e.deltaY * 0.01); });   // 창 위에서 휠은 창 스크롤
 document.addEventListener('pointerlockchange', () => {
   const was = locked; locked = document.pointerLockElement === cvs;
   if (was && !locked && state === 'play') pauseGame();
@@ -2555,12 +2571,12 @@ function penAction() {
   else if (c) pickPenItem(c.pick);
 }
 const nearSellShop = () => Math.hypot(P.pos.x - sellPos.x, P.pos.z - (sellPos.z - 1.3)) < 2.2 && P.pos.y < 1;
-// 우리 안에서 가까운 부화 중인 알 (동물은 E로 뺄 수 없음)
+// 우리 안에서 가까운 부화 중인 알 또는 동물 (E로 인벤토리에 넣기)
 function nearPenItem() {
   if (!inPen() || P.held) return null;
   let best = null, bd = 1.5;
   farmVis.forEach((v, i) => {
-    if (!v || v.kind === 'baby') return;
+    if (!v || v.kind === 'baby') return;   // 동물은 E로 뺄 수 없음 (V 창의 🎒 버튼으로만)
     const p = v.kind === 'baby' ? v.pos : v.egg.position;
     const d = Math.hypot(P.pos.x - p.x, P.pos.z - p.z);
     if (d < bd) { bd = d; best = { i, v }; }
@@ -2591,18 +2607,30 @@ function returnToNest(e, remote) {
   e.taken = false; e.parts.forEach(p => p.visible = true);
   if (!remote) NET.send({ t: 'ret', c: lastCycle, lv: nests.findIndex(n => n.eggs.includes(e)), i: e.idx });
 }
-// 들고 있던 달걀을 놓음: 그 달걀의 단계 안이면 원래 둥지로, 다른 단계면 그 자리에 남음
-function releaseEgg(x, y, z) {
+// 훔쳐 오던 달걀을 인벤토리에서 빼고 훔치기 상태를 끝냄 (잡힘·떨어짐·밤·재설정)
+function loseHeld() {
   const h = P.held; if (!h) return null;
+  const k = SAVE.inv.indexOf(h.item); if (k >= 0) SAVE.inv.splice(k, 1);
   P.held = null; playerModel.holder.clear(); sleepBoss();
+  return h;
+}
+// 우리 안에 들어오면 훔친 달걀이 진짜 내 것이 됨
+function securePenEgg() {
+  const h = P.held; if (!h) return;
+  delete h.item.stolen;
+  if (!SAVE.codex.includes(h.lv + '-' + h.g)) SAVE.codex.push(h.lv + '-' + h.g);
+  P.held = null; sleepBoss(); sfx('clear'); save();
+  toast(`🏡 ${eggLabel(h.lv, h.g)}을(를) 무사히 가져왔다!\n🎒 인벤토리에서 골라 우리에 놓아 보세요`, 2.6);
+}
+// 잃은 달걀: 그 달걀의 단계 안이면 원래 둥지로, 다른 단계면 그 자리에 남음
+function releaseEgg(x, y, z) {
+  const h = loseHeld(); if (!h) return null;
   if (zoneAt(x) === h.lv) { returnToNest(h.e); return 'nest'; }
   spawnGroundEgg(h, x, y, z); return 'ground';
 }
-function dropEgg() {
+function dropEgg() {   // 훔친 달걀은 인벤토리에 들어가서 버릴 수 없음
   if (state !== 'play' || !P.held) return;
-  if (!P.onGround || P.flying > 0) { toast('땅 위에서만 내려놓을 수 있어요', 1.2); return; }
-  const r = releaseEgg(P.pos.x, P.pos.y, P.pos.z);
-  toast(r === 'nest' ? '🥚 달걀이 원래 자리로 돌아갔어요' : '🥚 달걀을 이 자리에 내려놓았어요', 1.8);
+  toast('🎒 훔친 달걀은 버릴 수 없어요\n우리까지 가져가세요!', 1.4);
 }
 
 function updatePlayer(dt) {
@@ -2612,7 +2640,7 @@ function updatePlayer(dt) {
   const wl = Math.hypot(wx, wz); if (wl > 1) { wx /= wl; wz /= wl; }   // 조이스틱은 살짝 밀면 천천히
   const acc = Math.min(1, dt * (P.onGround ? 14 : 5));
   const cwF = P.flying > 0 ? curWing() : null;
-  const spd = cwF && cwF.inf ? RUN * 2 : RUN;   // 제작자 날개로 나는 중에는 2배 빠르게
+  const spd = cwF && cwF.inf ? RUN * 3 : RUN;   // 제작자 날개로 나는 중에는 다른 날개보다 3배 빠르게
   P.vel.x += (wx * spd - P.vel.x) * acc; P.vel.z += (wz * spd - P.vel.z) * acc;
   if (P.dashCd > 0) P.dashCd -= dt;
   if (P.shield > 0) P.shield -= dt;
@@ -2672,10 +2700,14 @@ function updatePlayer(dt) {
   }
   if (P.pos.y < -12) return revive(true) || fail(P.pos.x > levelStarts[2] ? '앗 뜨거! 용암에 빠졌다!' : '으아아 떨어졌다!');
 
+  if (P.held && inPen()) securePenEgg();   // 훔친 달걀을 들고 내 우리에 들어오면 안전
   // 달걀 가까이 가면 흰색 윤곽선
   const ne = nearEgg();
   const holdPick = keys.KeyE || mouseHeld || touchHeld;
-  if (!P.pick && holdPick && ne && !(P.flying > 0)) P.pick = { n: ne.n, e: ne.e, t: 0, tick: 0 };   // 날개로 나는 중에는 못 듦
+  if (!P.pick && holdPick && ne && !(P.flying > 0)) {   // 날개로 나는 중에는 못 듦
+    if (SAVE.inv.length >= INV_MAX) { if (!P.invFullT || T - P.invFullT > 2) { P.invFullT = T; toast('🎒 인벤토리가 가득 차서 달걀을 훔칠 수 없어요 (100칸)', 1.8); } }
+    else P.pick = { n: ne.n, e: ne.e, t: 0, tick: 0 };
+  }
   const target = P.pick ? P.pick.e : ne ? ne.e : null;
   if (outlined !== target) { if (outlined) outlined.outline.visible = false; if (target) target.outline.visible = true; outlined = target; }
 
@@ -2715,7 +2747,7 @@ function updatePlayer(dt) {
   } else if (ne) {
     pr = `<b>E</b> 또는 <b>클릭</b>을 <b>3초 꾹</b> — ${eggLabel(ne.n.lv, ne.e.g)} 들기 <span style="color:#ff8080">⚠ ${LEVELS[ne.n.lv].boss}가 깨어나요!</span>`;
   } else if (P.held && P.pos.x < 0 && !inPen()) {
-    pr = '🐣 울타리 우리 안으로 들어가야 달걀을 넣을 수 있어요';
+    pr = '🏃 울타리 우리 안으로 들어가면 훔친 달걀이 진짜 내 것이 돼요!';
   }
   $('prompt').classList.toggle('hidden', !pr);
   if (pr) $('prompt').innerHTML = pr;
@@ -2734,7 +2766,7 @@ function updatePlayer(dt) {
   P.anim += dt * hs * 1.6;
   const pm = playerModel, sw = P.onGround ? Math.sin(P.anim) * Math.min(1, hs / 6) * 0.9 : 0.5;
   pm.legs[0].rotation.x = sw; pm.legs[1].rotation.x = -sw;
-  const up = P.held || P.pick;
+  const up = P.pick || playerModel.hotG.visible;
   pm.arms[0].rotation.x = up ? Math.PI : -sw; pm.arms[1].rotation.x = up ? Math.PI : sw;
   pm.g.position.copy(P.pos); pm.g.rotation.y = P.face;
   pm.betaTag.position.y = up ? 2.75 : 2.2;
@@ -2751,7 +2783,7 @@ function updatePlayer(dt) {
 
 // 실패 (떨어짐 / 함정 / 잡힘) → 달걀 없이 농장으로
 function goFarm() {
-  if (P.held) { P.held = null; playerModel.holder.clear(); }
+  loseHeld();
   P.pick = null; sleepBoss(); stopFly(); P.dashT = 0; P.shield = 0; P.hp = MAX_HP; P.hurtT = 0;
   P.pos.copy(farmSpawn()); P.vel.set(0, 0, 0); P.ground = null; P.invuln = 1;
   camYaw = -Math.PI / 2;
@@ -2780,8 +2812,8 @@ function revive(fell) {
   return true;
 }
 function fail(msg) {
-  const had = P.held;
-  if (had) { P.held = null; playerModel.holder.clear(); sleepBoss(); returnToNest(had.e); }   // 떨어진 달걀은 원래 둥지로
+  const had = loseHeld();
+  if (had) returnToNest(had.e);   // 잃은 달걀은 인벤토리에서 빠지고 원래 둥지로
   sfx('die'); shake = 0.4; goFarm();
   toast(had ? `${msg}\n달걀은 원래 자리로 돌아갔어요` : `${msg}\n농장으로 돌아왔어요`, 2.2);
 }
@@ -2802,12 +2834,13 @@ function takeEgg(n, e) {
     removeGroundEgg(e);
     NET.send({ t: 'gtake', c: lastCycle, gid: e.id });
   } else NET.send({ t: 'take', c: lastCycle, lv: n.lv, i: e.idx });
-  P.held = { lv: n.lv, g: e.g, n, e: origin };
-  stopFly();   // 달걀을 들면 날 수 없음
-  const held = makeEggMesh(n.lv, e.g); playerModel.holder.add(held);
-  if (e.g === SECRET) { const h = halo(0xff4dd2, 1.6); playerModel.holder.add(h); }
+  // 훔친 달걀은 바로 인벤토리로 (stolen: 아직 우리까지 못 가져간 달걀 — 잡히거나 떨어지면 인벤토리에서 사라짐)
+  const item = { kind: 'egg', lv: n.lv, g: e.g, prog: 0, stolen: true };
+  SAVE.inv.push(item);
+  P.held = { lv: n.lv, g: e.g, n, e: origin, item };
+  stopFly();   // 달걀을 훔쳐 오는 중에는 날 수 없음
   sfx('pick');
-  toast(`🥚 ${eggLabel(n.lv, e.g)}을(를) 들었다!\n😱 ${LEVELS[n.lv].boss}가 깨어난다...!`, 2.2);
+  toast(`🎒 ${eggLabel(n.lv, e.g)}이(가) 인벤토리에 들어왔다!\n😱 ${LEVELS[n.lv].boss}가 깨어난다...! 우리까지 도망쳐!`, 2.4);
   camYaw = Math.PI / 2;   // 농장 쪽을 바라보게
   wakeBoss(n);
 }
@@ -2835,41 +2868,20 @@ function depositEgg(idx) {
 // =====================================================================
 let state = 'title', T = 0, night = isNightAt(Date.now()), lastCycle = cycleIndex(Date.now());
 const overlay = $('overlay');
-function showOverlay(html) { overlay.innerHTML = `<div class="panel">${html}</div>`; overlay.classList.remove('hidden'); }
+function showOverlay(html) { overlay.innerHTML = `<div class="panel">${html}</div>`; overlay.classList.toggle('walk', canWalk()); overlay.classList.remove('hidden'); }
+// 창을 띄운 채로도 움직일 수 있는 상태: 내 우리 보기(V), 인벤토리(M), 게임 중 도감(Tab)
+function canWalk() { return state === 'play' || state === 'inv' || (state === 'shop' && penInfoOpen) || (state === 'codex' && codexInGame); }
 function hideOverlay() { overlay.classList.add('hidden'); }
 
 function titleScreen() {
   state = 'title'; $('hud').classList.add('hidden'); unlock();
   showOverlay(`
-    <h1>🥚 달걀 도둑 농장 3D</h1>
-    <p>잠든 보스의 달걀을 훔쳐 와서 내 농장에서 부화시켜 돈을 벌자!</p>
-    <div class="rules">
-      🔹 맨 뒤 <b>🏡 내 농장</b>에서 출발 → <b>1단계 초원 → 2단계 정글 → 3단계 공룡 지역</b> 오비<br>
-      🔹 오비를 깨면 둥지에 <b>달걀 5개</b>가 랜덤 등급으로 생겨요. 등급은 보이지 않아요! (시크릿만 빛나요 ✨)<br>
-      🔹 달걀에 가까이 가면 흰 윤곽선이 생겨요. <b>E 또는 클릭을 3초 동안 꾹</b> 누르고 있어야 들 수 있어요.<br>
-      🔹 달걀을 들면 잠자던 보스(🐔→🐯→🦖)가 깨어나요! 오비를 거꾸로 깨서 <b>울타리 우리 안</b>까지 가져가요.<br>
-      🔹 <b>R / 달걀 내리기</b>: 그 단계 안이면 달걀이 원래 자리로, 다른 단계면 그 자리에 남아요. 보스에게 잡혀도 똑같아요.<br>
-      🔹 떨어지거나 잡히면 <b>달걀 없이 농장으로</b> 돌아가요. (체크포인트 없음)<br>
-      🔹 <b>🪽 날개 상점</b>: 흰색($100K, 2초) · 검은($10M, 2.5초) · 은색($500M, 3초) · 금색($1B, 4.5초) — <b>Shift+Space</b> 또는 <b>🪽 버튼</b>으로 비행!<br>
-      🔹 <b>💚 에메랄드 날개</b> ($10B): 날지는 못하지만 <b>Shift+Space</b> 또는 <b>💨 버튼</b>으로 <b>대쉬</b>! 5초에 1번, 달걀을 들고 있어도 OK<br>
-      🔹 <b>💎 다이아 날개</b> ($50B): <b>Shift+Space</b> 또는 <b>💎 버튼</b>으로 <b>3초 무적</b> (보스에게 안 잡히고 함정에 안 다쳐요). 게임 하루에 5번<br>
-      &nbsp;&nbsp;&nbsp;&nbsp;+ <b>❤️ 추가 생명 1개</b>: 떨어지거나 HP가 0이 되거나 보스에게 잡히면 그 자리에서 부활! (농장에 돌아오면 다시 충전)<br>
-      🔹 <b>✨ 제작자 날개</b>: 공중에서 <b>Space</b>로 무한 점프, <b>Shift+Space</b>로 시간·횟수 제한 없이 <b>2배 빠르게</b> 비행 (Space로 내리기, <b>달걀을 들고 있어도 OK</b>) · <b>무제한 체력</b> · 떨어지거나 잡혀도 <b>무한 부활</b><br>
-      🔹 <b>🎁 베타 테스터 날개</b>: 접속한 모두에게 선물! 장착하면 공중에서 <b>Space(점프)</b>를 한 번 더 눌러 <b>더블점프</b> (달걀을 들고 있어도 OK!)<br>
-      🔹 <b>🎒 인벤토리</b>(M키 / 가방 클릭, 100칸): 우리 안에서 펫·알 앞에서 <b>E</b>로 들기 → <b>💰 판매 상점</b>에서 팔기<br>
-      🔹 달걀을 가져오면 <b>내 우리</b>에서 원하는 <b>빈 칸</b>(노란 동그라미) 위에 서서 <b>E</b> → 그 칸에 심어요. 핫바에서 고른 펫·알도 같은 방법으로 놓을 수 있어요.<br>
-      🔹 낮 <b>5분</b>이 지나면 <b>밤 10초</b> — 방벽이 오비 입구를 막고, 달걀이 <b>3배 빨리</b> 자라요. 아침이 되면 달걀이 새로 생겨요.<br>
-      🔹 부화한 동물이 매초 돈을 벌어요. 게임을 꺼도 달걀은 계속 자라요!<br>
-      🔹 <b>🌐 함께 하기</b>: 이 게임에 들어오기만 하면 자동으로 같은 방에 접속해요 (최대 5명, 1명당 우리 1개). 다른 사람의 모습과 우리가 보이고, 누가 훔친 달걀은 모두에게서 사라져요.
-    </div>
-    <p style="font-size:13px;color:#9aa">📱 모바일: 왼쪽 조이스틱 이동 · 화면 드래그 카메라 · 두 손가락 줌 · ⤒ 점프 · ✋ E(꾹 누르면 달걀 들기) · 🪽 날기 · ⏸ 일시정지</p>
-    <p style="font-size:13px;color:#9aa">WASD 이동 · Space 점프 · Shift+Space·🪽버튼 날기 · E·클릭 꾹 달걀 훔치기 · E 상점/펫 들기 · R 달걀 내리기 · M·0 인벤토리 · Tab·📖버튼 도감 · 1~9 핫바 · 휠 줌 · ESC 일시정지</p>
     <div class="netBox"><div id="netStatus">${NET.status}</div>
       ${nameLocked
         ? `<div>닉네임 <b style="color:#ffe14a">${NET.name.replace(/[&"<>]/g, "")}</b> 🔒 <span style="font-size:12px;color:#9aa">한 번 정한 닉네임은 바꿀 수 없어요</span></div>`
         : `<label>닉네임 <input id="netName" maxlength="10" value="${/^농부 \d{3}$/.test(NET.name) ? "" : NET.name.replace(/[&"<>]/g, "")}" oninput="setNetName(this.value)" placeholder="2~10글자"></label>
       <div id="nameMsg">⚠ 한 번 정하면 <b>절대 바꿀 수 없어요</b> · 다른 사람이 쓰는 이름, 욕설·비속어·19금 단어는 쓸 수 없어요</div>`}</div>
-    <button class="btn" id="startBtn" onclick="startWithName()">게임 시작</button>
+    <button class="btn" id="startBtn" onclick="startWithName()"${!nameLocked && (/^농부 \d{3}$/.test(NET.name) || checkName(NET.name)) ? ' disabled title="닉네임을 먼저 정해 주세요"' : ''}>게임 시작</button>
     <button class="btn gray" onclick="codexScreen()">동물 도감</button>
     <button class="btn gray" id="resetBtn" onclick="resetData()">데이터 초기화</button>
     <p style="font-size:11px;color:#667;margin-top:10px">버전 ${GAME_VER}${IS_TOUCH ? ` · 📱 ${ROT ? "가로로 돌림" : "가로 화면"}` : ""}</p>`);
@@ -2943,6 +2955,7 @@ function codexScreen() {
 }
 
 function startGame() {
+  SAVE.inv = SAVE.inv.filter(it => !it.stolen);   // 훔쳐 오다가 게임을 끈 달걀은 없어짐
   goFarm(); P.invuln = 0;
   hideOverlay(); $('hud').classList.remove('hidden'); state = 'play'; lock();
   if (IS_TOUCH) {   // 모바일: 전체 화면으로 (지원하는 브라우저만)
@@ -2963,21 +2976,20 @@ function resume() { hideOverlay(); state = 'play'; penInfoOpen = false; lock(); 
 let penInfoOpen = false;
 function openPenInfo() { if (state !== 'play') return; state = 'shop'; penInfoOpen = true; unlock(); renderPenInfo(); }
 function renderPenInfo() {
-  const groups = new Map();   // 같은 동물끼리 묶기
+  const list = [];   // 같은 동물이라도 묶지 않고 1마리씩 따로 한 줄
   let eggs = 0, wait = 0;
   SAVE.slots.forEach(s => {
     if (!s) return;
     if (!isHatched(s)) { eggs++; if (s.hold) wait++; return; }
-    const k = s.lv + '-' + s.g, gr = groups.get(k) || { lv: s.lv, g: s.g, n: 0 };
-    gr.n++; groups.set(k, gr);
+    list.push({ lv: s.lv, g: s.g, i: SAVE.slots.indexOf(s) });
   });
-  const list = [...groups.values()].sort((a, b) => animalOf(b.lv, b.g).inc * b.n - animalOf(a.lv, a.g).inc * a.n);
-  const rows = list.map(({ lv, g, n }) => {
+  list.sort((a, b) => animalOf(b.lv, b.g).inc - animalOf(a.lv, a.g).inc);
+  const rows = list.map(({ lv, g, i }) => {
     const a = animalOf(lv, g), u = animalThumb(lv, g);
     return `<div class="penRow"><div class="pic">${u ? `<img class="thumb" src="${u}" alt="">` : animalIcon(a.type)}</div>
-      <div><b style="font-size:17px">${a.name}</b> <span style="color:#cfd3ea">× ${n}마리</span><br>
-      <span style="font-size:13px;color:#9aa">한 마리당 초당 $${fmt(a.inc)}</span></div>
-      <div class="inc">초당 +$${fmt(a.inc * n)}</div></div>`;
+      <div><b style="font-size:17px">${a.name}</b></div>
+      <div class="inc">초당 +$${fmt(a.inc)}</div>
+      <button class="cellBtn" onclick="penToInv(${i})" title="이 동물을 인벤토리에 넣기">🎒 넣기</button></div>`;
   }).join('') || '<div class="penRow" style="justify-content:center;color:#9aa">아직 우리에 동물이 없어요 · 달걀을 훔쳐 와서 우리에 놓아 보세요!</div>';
   const nA = animalCount(), lv = penLv(), max = lv >= PEN_UP.length;
   showOverlay(`<h2>🥚 내 우리</h2>
@@ -2986,6 +2998,16 @@ function renderPenInfo() {
     <div class="penList">${rows}</div>
     <p style="font-size:13px;color:#cfd3ea">${max ? '🏆 우리가 최고 레벨이에요!' : `⬆ 우리 앞 <b>표지판</b>에서 업그레이드하면 동물 +${PEN_STEP_CAP}마리 (<b style="color:${SAVE.money >= PEN_UP[lv] ? '#5f5' : '#f66'}">$${fmt(PEN_UP[lv])}</b>)`}</p>
     <button class="btn gray" onclick="resume()">닫기 (V)</button>`);
+}
+// 내 우리 창에서 🎒 버튼: 그 동물을 인벤토리로
+function penToInv(i) {
+  const s = SAVE.slots[i]; if (!s || !isHatched(s)) return;
+  if (SAVE.inv.length >= INV_MAX) { toast('🎒 인벤토리가 가득 찼어요 (100칸)', 1.5); return; }
+  const it = { kind: 'pet', lv: s.lv, g: s.g };
+  SAVE.inv.push(it); SAVE.slots[i] = null;
+  save(); rebuildFarm(); sfx('pick');
+  toast(`🎒 ${itemName(it)}을(를) 인벤토리에 넣었어요`, 1.6);
+  renderPenInfo();
 }
 function openShop() { state = 'shop'; unlock(); renderShop(); }
 function renderShop() {
@@ -3035,7 +3057,7 @@ function renderInv() {
       <span class="invNo">${i + 1}</span>${it ? itemIcon(it) + `<div class="invName">${itemName(it)}</div>
       <button class="cellBtn" onclick="event.stopPropagation();placeFromInv(${i})">🐣 우리에 놓기</button>` : ''}</div>`;
   }).join('');
-  let detail = '<span style="color:#9aa">아이템을 클릭하면 정보가 보여요 · 파란 1~9번 칸은 아래 핫바에 나와요 · 우리 안에서 부화 중인 알 앞에서 <b>E</b>를 누르면 인벤토리에 들어와요</span>';
+  let detail = '<span style="color:#9aa">아이템을 클릭하면 정보가 보여요 · 파란 1~9번 칸은 아래 핫바에 나와요 · 훔친 달걀은 바로 여기 들어와요 · 우리 안 부화 중인 알 앞에서 <b>E</b>, 동물은 <b>V</b>(내 우리)의 🎒 버튼으로 넣을 수 있어요</span>';
   const it = SAVE.inv[invSel];
   if (it) {
     const a = animalOf(it.lv, it.g);
@@ -3052,8 +3074,8 @@ function renderInv() {
 // ---------- 핫바 (10칸) ----------
 // 1~9번 칸은 인벤토리 1~9번 칸을 그대로 보여주고, 10번 칸은 인벤토리(100칸)를 연다
 const HOT_N = 9;
-let hotSel = 0, hotKey = '';
-function selHot(i) { hotSel = i; hotKey = ''; renderHotbar(); }
+let hotSel = -1, hotKey = '';   // -1 = 아무것도 안 고름 (평소에는 아무것도 안 들고 있음)
+function selHot(i) { hotSel = hotSel === i ? -1 : i; hotKey = ''; renderHotbar(); }   // 같은 번호를 한 번 더 누르면 내려놓기
 function renderHotbar() {
   const key = hotSel + '|' + SAVE.inv.slice(0, HOT_N).map(it => it.kind + it.lv + '-' + it.g).join(',');
   if (key === hotKey) return;
@@ -3073,6 +3095,11 @@ function renderHotbar() {
 // 인벤토리 i번 아이템을 우리 idx번 칸에 놓기
 function placeInvAt(i, idx) {
   const it = SAVE.inv[i]; if (!it || SAVE.slots[idx]) return;
+  if (it.stolen) {   // 훔쳐 오는 중인 달걀은 우리까지 직접 가져가야 함
+    const msg = '🏃 훔쳐 오는 중인 달걀이에요\n울타리 우리 안까지 가져가야 놓을 수 있어요';
+    if (state === 'play') toast(msg, 2.2); else { invSel = i; invMsg = msg.replace('\n', ' · '); }
+    return false;
+  }
   if (it.kind === 'pet' && animalCount() >= penCap()) {   // 동물은 우리 레벨만큼만 놓을 수 있음 (알은 제한 없음)
     const msg = `🚫 동물은 ${penCap()}마리까지만 놓을 수 있어요\n우리 앞 표지판에서 업그레이드하면 +${PEN_STEP_CAP}마리!`;
     if (state === 'play') toast(msg, 2.4); else { invSel = i; invMsg = msg.replace('\n', ' · '); }
@@ -3097,28 +3124,24 @@ function placeFromInv(i) {
 function openSell() { state = 'shop'; unlock(); renderSell(); }
 function renderSell() {
   let rows = '';
-  if (P.held) {
-    const h = { kind: 'egg', lv: P.held.lv, g: P.held.g };
-    rows += `<div class="item"><div style="display:flex;align-items:center;gap:10px">${itemIcon(h)}<div><b>${itemName(h)}</b> <span style="color:#9aa">(들고 있는 알)</span></div></div>
-      <button class="btn" onclick="sellHeld()">$${fmt(priceOf(h))}에 팔기</button></div>`;
-  }
   SAVE.inv.forEach((it, i) => {
+    if (it.stolen) return;   // 훔쳐 오는 중인 달걀은 못 팖
     rows += `<div class="item"><div style="display:flex;align-items:center;gap:10px">${itemIcon(it)}<div><b>${itemName(it)}</b><br>
       <span style="font-size:12px;color:#9aa">${it.kind === 'pet' ? '펫' : '알'}</span></div></div>
       <button class="btn" onclick="sellInv(${i})">$${fmt(priceOf(it))}에 팔기</button></div>`;
   });
-  const total = SAVE.inv.reduce((a, it) => a + priceOf(it), 0);
+  const total = SAVE.inv.reduce((a, it) => a + (it.stolen ? 0 : priceOf(it)), 0);
   showOverlay(`<h2>💰 판매 상점</h2><p>보유: <b style="color:#ffd23f">$${fmt(SAVE.money)}</b></p>
     <div class="shop">${rows || '<p>팔 수 있는 펫이나 알이 없어요.<br>우리 안에서 펫·알 앞에서 <b>E</b>를 누르면 인벤토리에 들어와요.</p>'}</div>
-    ${SAVE.inv.length ? `<button class="btn" onclick="sellAll()">인벤토리 전부 팔기 ($${fmt(total)})</button>` : ''}
+    ${total > 0 ? `<button class="btn" onclick="sellAll()">인벤토리 전부 팔기 ($${fmt(total)})</button>` : ''}
     <button class="btn gray" onclick="resume()">닫기</button>`);
 }
 function sellInv(i) {
-  const it = SAVE.inv[i]; if (!it) return;
+  const it = SAVE.inv[i]; if (!it || it.stolen) return;
   SAVE.money += priceOf(it); SAVE.inv.splice(i, 1); sfx('buy'); save(); renderSell();
 }
 function sellAll() {
-  SAVE.money += SAVE.inv.reduce((a, it) => a + priceOf(it), 0); SAVE.inv = []; sfx('buy'); save(); renderSell();
+  SAVE.money += SAVE.inv.reduce((a, it) => a + (it.stolen ? 0 : priceOf(it)), 0); SAVE.inv = SAVE.inv.filter(it => it.stolen); sfx('buy'); save(); renderSell();
 }
 function sellHeld() {
   if (!P.held) return;
@@ -3127,7 +3150,12 @@ function sellHeld() {
 }
 function pauseGame() {
   state = 'paused';
-  showOverlay(`<h2>⏸ 일시정지</h2><button class="btn" onclick="resume()">계속하기</button><button class="btn gray" onclick="save();titleScreen()">처음 화면</button>`);
+  showOverlay(`<h2>⏸ 일시정지</h2><button class="btn" onclick="resume()">계속하기</button><button class="btn gray" onclick="resetChar()">🔄 재설정 (R)</button><button class="btn gray" onclick="save();titleScreen()">처음 화면</button>`);
+}
+// 일시정지에서 R / 재설정 버튼: 무적·추가 생명과 상관없이 바로 농장으로 (들고 있던 달걀은 원래 자리로)
+function resetChar() {
+  if (state !== 'paused') return;
+  resume(); fail('🔄 재설정!');
 }
 
 function buildBar() {
@@ -3162,8 +3190,8 @@ function updateHUD() {
   const w = curWing();
   $('hFly').textContent = !w ? '' : w.inf ? `✨ ${w.name} · 2배속 무한 비행 · 공중 무한 점프 · ♾️ 체력 · 무한 부활` : w.dj ? `🪽 ${w.name} · 공중에서 점프 → 더블점프` : w.dash ? `💚 ${w.name} · Shift+Space 대쉬 ${P.dashCd > 0 ? P.dashCd.toFixed(1) + '초 후 충전' : '준비 완료!'}`
     : w.shield ? `💎 ${w.name} · ${P.shield > 0 ? `무적 ${P.shield.toFixed(1)}초!` : `Shift+Space 무적 오늘 ${shieldLeft()}/${w.sUses}회 남음`} · ${P.life ? '❤️ 추가 생명 1' : '🖤 추가 생명 0'}` : `🪽 ${w.name} 오늘 ${flyLeft()}/${FLY_PER_DAY}회 남음`;
-  $('jumpBanner').classList.toggle('hidden', !P.held);
-  $('btnDrop').classList.toggle('hidden', !P.held);
+  $('jumpBanner').classList.add('hidden');   // 위쪽 "점프 하다" 표시 없앰
+  $('btnDrop').classList.add('hidden');      // 훔친 달걀은 버릴 수 없음
   const fb = $('btnFly'), fl = P.flying > 0;
   fb.classList.toggle('hidden', !w || !!w.dj);
   fb.classList.toggle('land', fl);
@@ -3192,7 +3220,7 @@ function updateDayNight() {
     if (night) {
       clearGroundEggs();   // 밤이 되면 내려놓은 달걀도 리셋
       const had = P.held || P.pick;
-      if (P.held) { P.held = null; playerModel.holder.clear(); sleepBoss(); }
+      loseHeld();
       P.pick = null;
       if (state !== 'title') {
         sfx('night');
@@ -3238,13 +3266,14 @@ function loop() {
   updateOthers(dt);
   NET.tick(dt);
   SAVE.money += totalIncome() * dt;
-  if (state === 'play') {
+  if (canWalk()) {
     updatePlayer(dt);
-    if (state === 'play') updateBoss(dt);
+    if (canWalk()) updateBoss(dt);
     hudTick -= dt; if (hudTick <= 0) { hudTick = 0.1; updateHUD(); }
   }
   saveTick -= dt; if (saveTick <= 0) { saveTick = 5; save(); }
   if (playerModel.holder.children[0]) playerModel.holder.children[0].rotation.y += dt * 2;
+  updateHotHold();
   if (toastTimer > 0) { toastTimer -= dt; if (toastTimer <= 0) $('toast').style.opacity = 0; }
   if (secretTimer > 0) { secretTimer -= dt; if (secretTimer <= 0) $('secretBanner').classList.add('hidden'); }
   updateCamera(dt);
@@ -3543,6 +3572,7 @@ function setNetName(v) {
   const err = checkName(v);
   const el = $('nameMsg');
   if (el) { el.textContent = err || (v ? `✅ "${v}" — 게임 시작을 누르면 확정돼요 (나중에 바꿀 수 없어요)` : ''); el.style.color = err ? '#ff8080' : '#9dff9d'; }
+  const sb = $('startBtn'); if (sb && !nameLocked) sb.disabled = !!err;   // 닉네임을 정해야만 게임 시작 가능
   return !err;
 }
 // 게임 시작: 닉네임이 잠겨 있으면 바로 시작, 아니면 기록을 확인하고 확정한 뒤 시작
